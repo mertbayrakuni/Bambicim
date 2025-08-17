@@ -13,7 +13,7 @@
     <link rel="icon" href="{% static 'images/butterfly.svg' %}">
     {% block head %}{% endblock %}
 </head>
-<body class="b-bg b-text">
+<body class="b-bg b-text" data-theme="pink">
 <header class="b-container b-nav">
     <a class="brand" href="/">BAMBİCİM</a>
     <nav>
@@ -21,6 +21,11 @@
         <a href="#stack">Stack</a>
         <a href="#contact" class="pill">Let’s talk</a>
     </nav>
+    <div class="theme-toggle" aria-label="Theme">
+        <button class="swatch" data-set-theme="pink" title="Princess Pink"></button>
+        <button class="swatch hot" data-set-theme="hot" title="Hot Pink"></button>
+        <button class="swatch white" data-set-theme="white" title="Snow White"></button>
+    </div>
 </header>
 
 {% block content %}{% endblock %}
