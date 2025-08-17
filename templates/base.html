@@ -1,0 +1,37 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>{% block title %}Bambicim — Innovative Software Studio{% endblock %}</title>
+    <meta name="description" content="Bambicim builds fast, elegant, AI-powered software for web & mobile."/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <script src="{% static 'js/script.js' %}"></script>
+    <link rel="icon" href="{% static 'images/butterfly.svg' %}">
+    {% block head %}{% endblock %}
+</head>
+<body class="b-bg b-text">
+<header class="b-container b-nav">
+    <a class="brand" href="/">BAMBİCİM</a>
+    <nav>
+        <a href="#work">Work</a>
+        <a href="#stack">Stack</a>
+        <a href="#contact" class="pill">Let’s talk</a>
+    </nav>
+</header>
+
+{% block content %}{% endblock %}
+
+<footer class="b-container b-footer">
+    <span>© <span id="y"></span> Bambicim</span>
+    <span class="muted">Made with ✨ in Türkiye</span>
+</footer>
+
+<script>
+    document.getElementById('y').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
