@@ -1,6 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Bambicim — Princess-Pink Blog & Studio{% endblock %}
+{% load static %}
+{% block title %}Bambicim — Innovative Software Solutions{% endblock %}
 {% block content %}
+
     <section class="b-hero b-container">
         <div class="hero-copy">
             <h1><span class="grad">Princess-pink</span> software, built fast & beautifully</h1>
@@ -20,77 +22,73 @@
         </div>
     </section>
 
-    <!-- keep the rest of your sections (cards, stack, work grid, contact) as is -->
-{% endblock %}
+    <section class="b-container b-cards">
+        <article>
+            <h3>Product & UX</h3>
+            <p>Workshops, user flows, wireframes, brand foundations—clarity before code.</p>
+        </article>
+        <article>
+            <h3>Full-stack Dev</h3>
+            <p>Django, Node, React, Postgres. Clean architecture, crisp APIs, zero fluff.</p>
+        </article>
+        <article>
+            <h3>AI + Automation</h3>
+            <p>Integrations, assistants, data pipelines. Make your product feel magical.</p>
+        </article>
+    </section>
 
+    <section id="stack" class="b-container b-stack">
+        <h2>Tech we love</h2>
+        <ul>
+            <li>Django / DRF</li>
+            <li>Postgres</li>
+            <li>Redis</li>
+            <li>React</li>
+            <li>Tailwind (optional)</li>
+            <li>Docker</li>
+            <li>Render</li>
+            <li>Cloudflare</li>
+        </ul>
+    </section>
 
-<section class="b-container b-cards">
-    <article>
-        <h3>Product & UX</h3>
-        <p>Workshops, user flows, wireframes, brand foundations—clarity before code.</p>
-    </article>
-    <article>
-        <h3>Full-stack Dev</h3>
-        <p>Django, Node, React, Postgres. Clean architecture, crisp APIs, zero fluff.</p>
-    </article>
-    <article>
-        <h3>AI + Automation</h3>
-        <p>Integrations, assistants, data pipelines. Make your product feel magical.</p>
-    </article>
-</section>
-
-<section id="stack" class="b-container b-stack">
-    <h2>Tech we love</h2>
-    <ul>
-        <li>Django / DRF</li>
-        <li>Postgres</li>
-        <li>Redis</li>
-        <li>React</li>
-        <li>Tailwind (optional)</li>
-        <li>Docker</li>
-        <li>Render</li>
-        <li>Cloudflare</li>
-    </ul>
-</section>
-
-<section id="work" class="b-container b-work">
-    <h2>Selected work</h2>
-    <div class="grid3">
-        <a class="card" href="#" aria-label="Case study placeholder">
-            <div class="thumb" style="background-image:url('{% static "images/colors.jpeg" %}')"></div>
-            <h4>Fintech Dashboard</h4>
-            <p>Realtime analytics + billing with rock-solid auth.</p>
-        </a>
-        <a class="card" href="#" aria-label="Case study placeholder">
-            <div class="thumb" style="background-image:url('{% static "images/mirrors.jpeg" %}')"></div>
-            <h4>Marketplace MVP</h4>
-            <p>Launched in 14 days, revenue in week 3.</p>
-        </a>
-        <a class="card" href="#" aria-label="Case study placeholder">
-            <div class="thumb" style="background-image:url('{% static "images/unknown_female.jpg" %}')"></div>
-            <h4>AI Support Assistant</h4>
-            <p>Cut ticket time by 52% using LLMs + RAG.</p>
-        </a>
-    </div>
-</section>
-
-<section id="contact" class="b-container b-contact">
-    <h2>Tell us about your idea</h2>
-    <form method="post" action="{% url 'contact' %}" class="contact">
-        {% csrf_token %}
-        <div class="row">
-            <input name="name" placeholder="Your name" required>
-            <input type="email" name="email" placeholder="Email" required>
+    <section id="work" class="b-container b-work">
+        <h2>Selected work</h2>
+        <div class="grid3">
+            <a class="card" href="#" aria-label="Case study placeholder">
+                <div class="thumb" style="background-image:url('{% static "images/colors.jpeg" %}')"></div>
+                <h4>Fintech Dashboard</h4>
+                <p>Realtime analytics + billing with rock-solid auth.</p>
+            </a>
+            <a class="card" href="#" aria-label="Case study placeholder">
+                <div class="thumb" style="background-image:url('{% static "images/mirrors.jpeg" %}')"></div>
+                <h4>Marketplace MVP</h4>
+                <p>Launched in 14 days, revenue in week 3.</p>
+            </a>
+            <a class="card" href="#" aria-label="Case study placeholder">
+                <div class="thumb" style="background-image:url('{% static "images/unknown_female.jpg" %}')"></div>
+                <h4>AI Support Assistant</h4>
+                <p>Cut ticket time by 52% using LLMs + RAG.</p>
+            </a>
         </div>
-        <textarea name="message" rows="5" placeholder="What are we building?" required></textarea>
-        <button class="cta">Send message</button>
-        {% if messages %}
-            <div class="flash">
-                {% for m in messages %}<p>{{ m }}</p>{% endfor %}
+    </section>
+
+    <section id="contact" class="b-container b-contact">
+        <h2>Tell us about your idea</h2>
+        <form method="post" action="{% url 'contact' %}" class="contact">
+            {% csrf_token %}
+            <div class="row">
+                <input name="name" placeholder="Your name" required>
+                <input type="email" name="email" placeholder="Email" required>
             </div>
-        {% endif %}
-    </form>
-    <p class="muted alt">Prefer email? <a href="mailto:mert@bambicim.com">mert@bambicim.com</a></p>
-</section>
+            <textarea name="message" rows="5" placeholder="What are we building?" required></textarea>
+            <button class="cta">Send message</button>
+            {% if messages %}
+                <div class="flash">
+                    {% for m in messages %}<p>{{ m }}</p>{% endfor %}
+                </div>
+            {% endif %}
+        </form>
+        <p class="muted alt">Prefer email? <a href="mailto:mert@bambicim.com">mert@bambicim.com</a></p>
+    </section>
 
 {% endblock %}
