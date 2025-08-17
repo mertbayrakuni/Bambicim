@@ -24,7 +24,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("DJANGO_SECRET_KEY", "dev-secret-unsafe")
 DEBUG = env("DJANGO_DEBUG", True, cast=bool)
-ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS", ["127.0.0.1", "localhost"], cast=list)
+ALLOWED_HOSTS = [
+    "bambicim.com",
+    "www.bambicim.com",
+    ".onrender.com",
+    "127.0.0.1",
+    "localhost",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://bambicim.com",
+    "https://www.bambicim.com",
+    "https://*.onrender.com",
+]
+
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
 
 # Application definition
 
@@ -47,7 +64,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    "whitenoise.middleware.WhiteNoiseMiddleware",
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'Bambicim.middleware.CanonicalHostRedirectMiddleware',
 ]
 
 ROOT_URLCONF = 'Bambicim.urls'
