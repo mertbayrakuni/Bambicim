@@ -13,7 +13,7 @@
     <link rel="icon" href="{% static 'images/butterfly.svg' %}">
     {% block head %}{% endblock %}
 </head>
-<body class="b-bg b-text" data-theme="pink">
+<body class="b-bg b-text">
 <header class="b-container b-nav">
     <a class="brand" href="/">BAMBİCİM</a>
     <nav>
@@ -22,9 +22,9 @@
         <a href="#contact" class="pill">Let’s talk</a>
     </nav>
     <div class="theme-toggle" aria-label="Theme">
-        <button class="swatch" data-set-theme="pink" title="Princess Pink"></button>
-        <button class="swatch hot" data-set-theme="hot" title="Hot Pink"></button>
-        <button class="swatch white" data-set-theme="white" title="Snow White"></button>
+        <button type="button" class="swatch" data-set-theme="pink" title="Princess Pink"></button>
+        <button type="button" class="swatch hot" data-set-theme="hot" title="Hot Pink"></button>
+        <button type="button" class="swatch white" data-set-theme="white" title="Snow White"></button>
     </div>
 </header>
 
@@ -39,4 +39,5 @@
     document.getElementById('y').textContent = new Date().getFullYear();
 </script>
 </body>
+<script defer src="{% static 'js/script.js' %}"></script>
 </html>
