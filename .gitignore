@@ -1,0 +1,22 @@
+# venv / pycharm
+.venv/
+.idea/
+.vscode/
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# django
+db.sqlite3
+staticfiles/
+media/
+
+# logs & local run artifacts
+logs/
+*.log
+
+# env / secrets
+.env
+.env.*
