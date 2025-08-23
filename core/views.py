@@ -3,18 +3,21 @@ from django.contrib import messages
 from django.core.mail import send_mail, BadHeaderError
 from django.shortcuts import render, redirect
 from django.conf import settings
-from utils.helpers import persona_from_color, utcnow_iso
+import os
+from utils.github import get_recent_public_repos_cached
 
 log = logging.getLogger("app")
 
 
-def index(request):
-    persona = persona_from_color(request.GET.get("color", "white"))
-    log.info("Page hit at %s persona=%s", utcnow_iso(), persona["name"])
-
-
 def home(request):
-    return render(request, "home.html")
+    user = os.environ.get("GITHUB_USERNAME", "mertbayrakuni")
+    token = os.environ.get("GITHUB_TOKEN")  # optional
+    repos = []
+    try:
+        repos = get_recent_public_repos_cached(user, token)
+    except Exception:
+        repos = []  # fail silently; page still loads
+    return render(request, "home.html", {"repos": repos})
 
 
 def contact(request):

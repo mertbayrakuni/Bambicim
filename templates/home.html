@@ -44,33 +44,38 @@
             <li>Postgres</li>
             <li>Redis</li>
             <li>React</li>
-            <li>Tailwind (optional)</li>
+            <li>Tailwind</li>
             <li>Docker</li>
             <li>Render</li>
             <li>Cloudflare</li>
         </ul>
     </section>
 
-    <section id="work" class="b-container b-work">
+    <section class="b-container b-mt-xl">
         <h2>Selected work</h2>
-        <div class="grid3">
-            <a class="card" href="#" aria-label="Case study placeholder">
-                <div class="thumb" style="background-image:url('{% static "images/colors.jpeg" %}')"></div>
-                <h4>Fintech Dashboard</h4>
-                <p>Realtime analytics + billing with rock-solid auth.</p>
-            </a>
-            <a class="card" href="#" aria-label="Case study placeholder">
-                <div class="thumb" style="background-image:url('{% static "images/mirrors.jpeg" %}')"></div>
-                <h4>Marketplace MVP</h4>
-                <p>Launched in 14 days, revenue in week 3.</p>
-            </a>
-            <a class="card" href="#" aria-label="Case study placeholder">
-                <div class="thumb" style="background-image:url('{% static "images/unknown_female.jpg" %}')"></div>
-                <h4>AI Support Assistant</h4>
-                <p>Cut ticket time by 52% using LLMs + RAG.</p>
-            </a>
+
+        <div class="work-grid">
+            {% for r in repos %}
+                <a class="card work-card" href="{{ r.html_url }}" target="_blank" rel="noopener">
+                    <img class="work-thumb" src="{{ r.og_image }}" alt="{{ r.name }} preview">
+                    <div class="card-body">
+                        <div class="work-title">{{ r.name }}</div>
+                        <p class="work-desc">
+                            {{ r.description|default:"No description yet." }}
+                        </p>
+                        <div class="work-meta">
+                            {% if r.language %}<span>{{ r.language }}</span>{% endif %}
+                            <span>★ {{ r.stars }}</span>
+                            {% if r.pushed_dt %}<span>updated {{ r.pushed_dt|timesince }} ago</span>{% endif %}
+                        </div>
+                    </div>
+                </a>
+            {% empty %}
+                <p>No public repos yet — check back soon.</p>
+            {% endfor %}
         </div>
     </section>
+
 
     <section id="contact" class="b-container b-contact">
         <h2>Tell us about your idea</h2>
