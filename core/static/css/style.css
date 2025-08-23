@@ -496,7 +496,7 @@ body[data-theme="white"] {
     }
 
     a, button, [role="button"], summary {
-        cursor: pointer;
+        cursor: var(--cursor-svg), var(--cursor-png), pointer;
     }
 
     input, textarea, select, [contenteditable="true"], pre, code {

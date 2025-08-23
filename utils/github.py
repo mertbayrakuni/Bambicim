@@ -1,5 +1,5 @@
 # utils/github.py
-import os, requests, time
+import os, requests
 from django.core.cache import cache
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -10,7 +10,6 @@ def _normalize(repo):
     pushed = parse_datetime(repo.get("pushed_at"))
     if pushed and timezone.is_naive(pushed):
         pushed = pushed.replace(tzinfo=timezone.utc)
-        cache_bust = int(time.time() // 3600)
     return {
         "name": repo["name"],
         "full_name": repo["full_name"],
@@ -19,7 +18,7 @@ def _normalize(repo):
         "language": repo.get("language"),
         "stars": repo.get("stargazers_count", 0),
         "pushed_dt": pushed,
-        "og_image": f"https://opengraph.githubassets.com/{cache_bust}/{repo['full_name']}",
+        "og_image": f"https://opengraph.githubassets.com/1/{repo['full_name']}",
     }
 
 def fetch_recent_public_repos(user: str, token: str | None, per_page: int = 3):
@@ -52,4 +51,3 @@ def get_recent_public_repos_cached(user: str, token: str | None):
         repos = cached or []
     cache.set(key, repos, 600)  # 10 minutes
     return repos
-
