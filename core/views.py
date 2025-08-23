@@ -9,6 +9,7 @@ from django.core.mail import send_mail, BadHeaderError
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST, require_GET
 
 from utils.github import get_recent_public_repos_cached
