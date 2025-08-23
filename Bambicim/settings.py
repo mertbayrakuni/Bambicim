@@ -11,8 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import os
-
+import os, dj_database_url
+from dotenv import load_dotenv
 from config.env import env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -30,7 +30,7 @@ ALLOWED_HOSTS = [
     ".onrender.com",
     "127.0.0.1",
     "localhost",
-    "bf82eef2ee4d.ngrok-free.app",
+    "2b3ad55e01ce.ngrok-free.app",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -55,7 +55,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'core.apps.BambiConfig',
-    'whitenoise.runserver_nostatic'
+    'whitenoise.runserver_nostatic',
 ]
 
 MIDDLEWARE = [
@@ -92,11 +92,19 @@ WSGI_APPLICATION = 'Bambicim.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+
+db_url = os.environ.get("DATABASE_URL", "")
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": dj_database_url.parse(
+        db_url,
+        conn_max_age=600,
+        ssl_require=os.environ.get("DJANGO_DB_SSL") == "1"
+    ) if db_url else {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
