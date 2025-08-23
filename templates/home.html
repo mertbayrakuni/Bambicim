@@ -37,18 +37,17 @@
         </article>
     </section>
 
-    <section id="stack" class="b-container b-stack">
-        <h2>Tech we love</h2>
-        <ul>
-            <li>Django / DRF</li>
-            <li>Postgres</li>
-            <li>Redis</li>
-            <li>React</li>
-            <li>Tailwind</li>
-            <li>Docker</li>
-            <li>Render</li>
-            <li>Cloudflare</li>
-        </ul>
+    <section id="game" class="b-container b-game">
+        <h2>Bambi game</h2>
+        <div id="game-root"
+             class="game-card"
+             data-scenes-url="{% static 'game/scenes.json' %}">
+            <div class="scene">
+                <h3 id="g-title"></h3>
+                <p id="g-text"></p>
+                <div id="g-choices" class="choices"></div>
+            </div>
+        </div>
     </section>
 
     <section id="work" class="b-container b-mt-xl">
@@ -76,7 +75,6 @@
         </div>
     </section>
 
-
     <section id="contact" class="b-container b-contact">
         <h2>Tell us about your idea</h2>
         <form method="post" action="{% url 'contact' %}" class="contact">
@@ -93,7 +91,7 @@
                 </div>
             {% endif %}
         </form>
-        <p class="muted alt">Prefer email? <a href="mailto:ipek@bambicim.com">mert@bambicim.com</a></p>
+        <p class="muted alt">Prefer email? <a href="mailto:ipek@bambicim.com">ipek@bambicim.com</a></p>
     </section>
 
 {% endblock %}

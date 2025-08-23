@@ -1,0 +1,51 @@
+{
+  "start": "intro",
+  "scenes": {
+    "intro": {
+      "title": "First step",
+      "text": "A quiet evening. Code on one screen, a mirror app on the other.",
+      "choices": [
+        {"label": "Open docs", "next": "docs"},
+        {"label": "Open the mirror", "next": "mirror"}
+      ]
+    },
+    "docs": {
+      "title": "Variables & voice",
+      "text": "You rename a variable, then try your name, softer.",
+      "choices": [
+        {"label": "Practice a loop", "next": "loop"},
+        {"label": "Back", "next": "intro"}
+      ]
+    },
+    "mirror": {
+      "title": "Glimmer",
+      "text": "The reflection smiles back. Save that feeling like a snippet.",
+      "choices": [{"label": "Back", "next": "intro"}]
+    },
+    "loop": {
+      "title": "Tiny triumphs",
+      "text": "for…of, map — progress is iterative.",
+      "choices": [
+        {"label": "Ship a tiny feature", "next": "ship", "set": {"shipped": true}},
+        {"label": "Back", "next": "docs"}
+      ]
+    },
+    "ship": {
+      "title": "Ship it",
+      "text": "Small but honest. You’re becoming the person who builds.",
+      "choices": [
+        {"label": "Continue", "next": "chapter2", "if": {"shipped": true}},
+        {"label": "Play again", "next": "intro"}
+      ]
+    },
+    "chapter2": {
+      "title": "New chapter",
+      "text": "A gentle fork: study, rest, or reach out to a friend.",
+      "choices": [
+        {"label": "Study JS arrays", "next": "study"},
+        {"label": "Rest", "next": "rest"},
+        {"label": "Message a friend", "next": "friend"}
+      ]
+    }
+  }
+}

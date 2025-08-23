@@ -195,30 +195,6 @@ a {
     color: var(--muted)
 }
 
-.b-stack {
-    margin-top: 18px
-}
-
-.b-stack h2 {
-    margin-bottom: 12px
-}
-
-.b-stack ul {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding: 0;
-    margin: 0;
-    list-style: none
-}
-
-.b-stack li {
-    border: 1px solid var(--line);
-    padding: 8px 12px;
-    border-radius: 10px;
-    color: var(--muted)
-}
-
 .card {
     border: 1px solid var(--line);
     border-radius: 14px;
@@ -464,3 +440,30 @@ body[data-theme="white"] {
 .b-mt-xl {
     margin-top: 40px;
 }
+
+.b-game { margin-top: 28px; }
+
+.game-card{
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 6px 30px rgba(0,0,0,.25);
+}
+
+.scene h3{ margin: 0 0 8px; font-size: 20px; }
+.scene p{ margin: 0 0 14px; color: var(--muted); }
+
+.choices{ display: flex; flex-wrap: wrap; gap: 10px; }
+.choice-btn{
+  border: 1px solid var(--line);
+  background: #0f0f16;
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .12s ease, background .12s ease;
+}
+.choice-btn:hover{ transform: translateY(-1px); background: #13131b; }
+.choice-btn[disabled]{ opacity: .5; cursor: not-allowed; }
