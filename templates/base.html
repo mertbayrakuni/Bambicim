@@ -23,11 +23,6 @@
         <a class="pill" href="#contact">Let’s talk</a>
     </nav>
 
-    <div class="theme-toggle" aria-label="Theme">
-        <button type="button" class="swatch" data-set-theme="pink" title="Princess Pink"></button>
-        <button type="button" class="swatch hot" data-set-theme="hot" title="Hot Pink"></button>
-        <button type="button" class="swatch white" data-set-theme="white" title="Snow White"></button>
-    </div>
 
     <div class="auth">
         {% if user.is_authenticated %}
@@ -40,6 +35,12 @@
             <a class="ghost small" href="{% url 'login' %}">Sign in</a>
             <a class="pill small" href="{% url 'signup' %}">Sign up</a>
         {% endif %}
+
+        <div class="theme-toggle" aria-label="Theme">
+            <button type="button" class="swatch" data-set-theme="pink" title="Princess Pink"></button>
+            <button type="button" class="swatch hot" data-set-theme="hot" title="Hot Pink"></button>
+            <button type="button" class="swatch white" data-set-theme="white" title="Snow White"></button>
+        </div>
     </div>
 </header>
 

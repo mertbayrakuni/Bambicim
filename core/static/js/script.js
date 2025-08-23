@@ -56,3 +56,18 @@
     tag.textContent = css;
     document.head.appendChild(tag);
 })();
+
+(function () {
+    const KEY = 'theme';
+    const $root = document.body;
+    const saved = localStorage.getItem(KEY) || 'dark';
+    $root.dataset.theme = saved;
+
+    document.querySelectorAll('.theme-toggle .swatch').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const t = btn.dataset.theme || 'dark';
+            $root.dataset.theme = t;
+            localStorage.setItem(KEY, t);
+        });
+    });
+})();
