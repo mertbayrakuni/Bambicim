@@ -30,7 +30,7 @@ ALLOWED_HOSTS = [
     ".onrender.com",
     "127.0.0.1",
     "localhost",
-    "2b3ad55e01ce.ngrok-free.app",
+    "fd1e995b6dcb.ngrok-free.app",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
