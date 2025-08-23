@@ -467,3 +467,28 @@ body[data-theme="white"] {
 }
 .choice-btn:hover{ transform: translateY(-1px); background: #13131b; }
 .choice-btn[disabled]{ opacity: .5; cursor: not-allowed; }
+
+/* ===== Butterfly cursor follower ===== */
+:root { --bfly-size: 28px; }
+
+#bfly{
+  position: fixed; left: 0; top: 0;
+  width: var(--bfly-size); height: calc(var(--bfly-size) * .85);
+  pointer-events: none; z-index: 9999;
+  transform: translate(-50%,-50%);
+  display: none;
+}
+#bfly .sprite{
+  width: 100%; height: 100%;
+  background: var(--cursor-url) center / contain no-repeat;
+  filter: drop-shadow(0 0 6px rgba(255,91,189,.40));
+  animation: bflyFlap .9s ease-in-out infinite;
+}
+@keyframes bflyFlap { 0%,100%{ transform: scale(1) } 50%{ transform: scale(1.06) } }
+
+body.hide-system-cursor { cursor: none; }
+
+@media (pointer: coarse), (prefers-reduced-motion: reduce){
+  #bfly { display: none !important; }
+  body.hide-system-cursor { cursor: auto; }
+}

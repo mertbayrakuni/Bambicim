@@ -10,9 +10,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <script src="{% static 'js/script.js' %}"></script>
-    <link rel="icon" href="{% static 'images/butterfly.svg' %}">
+    <link rel="icon" href="{% static 'images/svg/butterfly.svg' %}">
+    <style>
+        :root {
+            --cursor-url: url("{% static 'images/svg/butterfly-two-color.svg' %}");
+        }
+    </style>
     {% block head %}{% endblock %}
 </head>
+<div id="bfly" aria-hidden="true">
+    <div class="sprite"></div>
+</div>
 <body class="b-bg b-text">
 <header class="b-container b-nav">
     <a class="brand" href="/">BAMBİCİM</a>
