@@ -50,54 +50,82 @@ def contact(request):
     return redirect("home")
 
 
-
-
 ITEM_DEFS = {
-    "pink-skirt":   {"name": "Pink Skirt", "emoji": "🩷"},
-    "lip-gloss":    {"name": "Lip Gloss",  "emoji": "💄"},
-    "hair-bow":     {"name": "Hair Bow",   "emoji": "🎀"},
-    "cat-ears":     {"name": "Cat Ears",   "emoji": "😼"},
-    "combat-boots": {"name": "Combat Boots","emoji": "🥾"},
+    "pink-skirt": {"name": "Pink Skirt", "emoji": "🩷"},
+    "lip-gloss": {"name": "Lip Gloss", "emoji": "💄"},
+    "hair-bow": {"name": "Hair Bow", "emoji": "🎀"},
+    "cat-ears": {"name": "Cat Ears", "emoji": "😼"},
+    "combat-boots": {"name": "Combat Boots", "emoji": "🥾"},
 }
+
 
 def _ensure_item(slug: str) -> Item:
     defaults = ITEM_DEFS.get(slug, {"name": slug.replace("-", " ").title(), "emoji": "✨"})
     obj, _ = Item.objects.get_or_create(slug=slug, defaults=defaults)
     return obj
 
+
 @require_POST
+@csrf_protect
 @login_required
 def game_choice(request):
-    try:
-        payload = json.loads(request.body.decode("utf-8"))
-    except Exception:
-        return HttpResponseBadRequest("invalid json")
-
-    scene_id = payload.get("scene")
-    choice_id = payload.get("choice")
-    gains = payload.get("gain", [])  # [{slug, qty}]
-
-    if scene_id and choice_id:
-        ChoiceLog.objects.create(user=request.user, scene=scene_id, choice=choice_id, made_at=timezone.now())
+    """
+    Accepts JSON like:
+    {
+      "scene": "shop",
+      "choice": "skirt",
+      "gain": [{"slug": "pink-skirt", "qty": 1}, ...]
+    }
+    """
+    data = json.loads(request.body or "{}")
+    scene_id = data.get("scene") or ""
+    choice_id = data.get("choice") or ""
+    awards = data.get("gain") or []
 
     gained = []
-    for g in gains:
-        slug = g.get("slug")
-        qty = int(g.get("qty", 1))
+    for award in awards:
+        slug = (award or {}).get("slug")
+        qty = int((award or {}).get("qty", 1))
         if not slug or qty <= 0:
             continue
-        item = _ensure_item(slug)
-        inv, _ = Inventory.objects.get_or_create(user=request.user, item=item)
-        inv.qty += qty
-        inv.save()
-        gained.append({"slug": slug, "name": item.name, "qty": qty, "emoji": item.emoji})
+
+        # create item on first sight (nice for prototyping)
+        item, _ = Item.objects.get_or_create(
+            slug=slug,
+            defaults={"name": slug.replace("-", " ").title(), "emoji": "✨"},
+        )
+
+        inv, _ = Inventory.objects.get_or_create(
+            user=request.user, item=item, defaults={"qty": 0}
+        )
+        Inventory.objects.filter(pk=inv.pk).update(qty=F("qty") + qty)
+        inv.refresh_from_db()
+
+        gained.append(
+            {"slug": item.slug, "name": item.name, "qty": qty, "emoji": item.emoji}
+        )
+
+    if scene_id or choice_id:
+        ChoiceLog.objects.create(user=request.user, scene=scene_id, choice=choice_id)
 
     return JsonResponse({"ok": True, "gained": gained})
+
 
 @require_GET
 @login_required
 def game_inventory(request):
-    qs = request.user.inventories.select_related("item").order_by("item__name")
-
-    data = [{"slug": r.item.slug, "name": r.item.name, "qty": r.qty, "emoji": r.item.emoji} for r in qs]
-    return JsonResponse({"items": data})
+    rows = (
+        Inventory.objects.filter(user=request.user)
+        .select_related("item")
+        .order_by("item__name")
+    )
+    items = [
+        {
+            "slug": r.item.slug,
+            "name": r.item.name,
+            "qty": r.qty,
+            "emoji": r.item.emoji,
+        }
+        for r in rows
+    ]
+    return JsonResponse({"items": items})

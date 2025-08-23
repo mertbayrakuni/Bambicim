@@ -1,43 +1,40 @@
 {
+  "meta": {
+    "title": "Bambi — Soft evening",
+    "version": 1
+  },
   "start": "intro",
   "scenes": {
     "intro": {
-      "title": "First step",
-      "text": "A quiet evening. Code on one screen, a mirror app on the other.",
+      "title": "Evening glow",
+      "text": "Room lights low, a pink tab open, quiet excitement in your chest.",
       "choices": [
         {
-          "label": "Open docs",
-          "next": "docs"
-        },
-        {
-          "label": "Open the mirror",
+          "label": "Peek in the mirror",
           "next": "mirror"
-        }
-      ]
-    },
-    "docs": {
-      "title": "Variables & voice",
-      "text": "You rename a variable, then try your name, softer.",
-      "choices": [
-        {
-          "label": "Practice a loop",
-          "next": "loop"
         },
         {
-          "label": "Back",
-          "next": "intro"
+          "label": "Put water on for tea",
+          "next": "kitchen"
         }
       ]
     },
     "mirror": {
       "title": "Glimmer",
-      "text": "The reflection smiles back. Save that feeling like a snippet.",
+      "text": "You tuck hair behind your ear and smile.",
       "choices": [
         {
-          "label": "Pin hair with a scrunchie",
-          "next": "loop",
+          "label": "Dab a little lip gloss",
+          "next": "closet",
           "gain": [
-            "pink-scrunchie"
+            "lip-gloss"
+          ]
+        },
+        {
+          "label": "Tie a ribbon",
+          "next": "closet",
+          "gain": [
+            "hair-ribbon"
           ]
         },
         {
@@ -46,190 +43,145 @@
         }
       ]
     },
-    "loop": {
-      "title": "Tiny triumphs",
-      "text": "for…of, map — progress is iterative.",
+    "kitchen": {
+      "title": "Tiny ritual",
+      "text": "Kettle sings. Steam curls up like a thought.",
       "choices": [
         {
-          "label": "Ship a tiny feature",
-          "next": "ship",
-          "set": {
-            "shipped": true
-          }
+          "label": "Herbal tea, gentle",
+          "next": "closet",
+          "gain": [
+            "herbal-tea"
+          ]
         },
         {
-          "label": "Refactor a helper",
-          "next": "ship"
-        }
-      ]
-    },
-    "ship": {
-      "title": "Ship it",
-      "text": "Small but honest. You’re becoming the person who builds.",
-      "choices": [
-        {
-          "label": "Continue",
-          "next": "chapter2",
-          "if": {
-            "shipped": true
-          }
+          "label": "Light a small candle",
+          "next": "closet",
+          "gain": [
+            "soft-candle"
+          ]
         },
         {
-          "label": "Play again",
+          "label": "Back",
           "next": "intro"
         }
       ]
     },
-    "chapter2": {
-      "title": "Fork in the day",
-      "text": "Study, rest, or reach out to a friend.",
+    "closet": {
+      "title": "Little outfit",
+      "text": "You reach for something that feels like you.",
       "choices": [
         {
-          "label": "Study JS arrays",
-          "next": "study",
+          "label": "Soft tee",
+          "next": "street",
           "gain": [
-            "sticky-notes"
+            "soft-tee"
           ]
         },
         {
-          "label": "Rest a moment",
-          "next": "rest"
+          "label": "Pink skirt",
+          "next": "street",
+          "gain": [
+            "pink-skirt"
+          ]
+        }
+      ]
+    },
+    "street": {
+      "title": "Night air",
+      "text": "Cool breeze, city glow. Your steps feel lighter.",
+      "choices": [
+        {
+          "label": "Pop by a boutique",
+          "next": "boutique"
         },
         {
-          "label": "Message a friend",
-          "next": "friend",
+          "label": "Stroll through the park",
+          "next": "park"
+        }
+      ]
+    },
+    "boutique": {
+      "title": "Pretty things",
+      "text": "A tray of sweet accessories sparkles softly.",
+      "choices": [
+        {
+          "label": "Butterfly pin",
+          "next": "alley",
+          "gain": [
+            "butterfly-pin"
+          ]
+        },
+        {
+          "label": "Hair bow",
+          "next": "alley",
+          "gain": [
+            "hair-bow"
+          ]
+        }
+      ]
+    },
+    "alley": {
+      "title": "Shortcut",
+      "text": "You spot a pop-up with boots. Tempting.",
+      "choices": [
+        {
+          "label": "Try combat boots",
+          "next": "cafe",
+          "gain": [
+            "combat-boots"
+          ]
+        },
+        {
+          "label": "Skip boots",
+          "next": "cafe"
+        }
+      ]
+    },
+    "park": {
+      "title": "Quiet path",
+      "text": "Leaves whisper. You breathe easier.",
+      "choices": [
+        {
+          "label": "Take a sweet selfie",
+          "next": "cafe",
+          "gain": [
+            "spark-photo"
+          ]
+        },
+        {
+          "label": "Just enjoy the walk",
+          "next": "cafe"
+        }
+      ]
+    },
+    "cafe": {
+      "title": "Late-night café",
+      "text": "Warm mug, soft playlist, a tiny bit braver than yesterday.",
+      "choices": [
+        {
+          "label": "Write a note in pink",
+          "next": "home",
+          "gain": [
+            "pink-notebook"
+          ]
+        },
+        {
+          "label": "Send a kind DM",
+          "next": "home",
           "gain": [
             "warm-emoji"
           ]
         }
       ]
     },
-    "study": {
-      "title": "Study break",
-      "text": "You nail splice vs slice, reward yourself with a treat.",
-      "choices": [
-        {
-          "label": "Tea with lip balm",
-          "next": "shop",
-          "gain": [
-            "lip-balm"
-          ]
-        },
-        {
-          "label": "Back",
-          "next": "chapter2"
-        }
-      ]
-    },
-    "rest": {
-      "title": "Gentle reset",
-      "text": "Breath in, breath out, shoulders down.",
-      "choices": [
-        {
-          "label": "Put on a soft tee",
-          "next": "shop",
-          "gain": [
-            "soft-tee"
-          ]
-        },
-        {
-          "label": "Back",
-          "next": "chapter2"
-        }
-      ]
-    },
-    "friend": {
-      "title": "Ping",
-      "text": "Your friend: “Proud of you. Try the makeover app?”",
-      "choices": [
-        {
-          "label": "Open makeover",
-          "next": "studio",
-          "gain": [
-            "confidence"
-          ]
-        },
-        {
-          "label": "Back",
-          "next": "chapter2"
-        }
-      ]
-    },
-    "shop": {
-      "title": "Little shop",
-      "text": "You browse accessories that feel like you.",
-      "choices": [
-        {
-          "label": "Pick a butterfly pin",
-          "next": "park",
-          "gain": [
-            "butterfly-pin"
-          ]
-        },
-        {
-          "label": "Pick a pink notebook",
-          "next": "park",
-          "gain": [
-            "pink-notebook"
-          ]
-        }
-      ]
-    },
-    "studio": {
-      "title": "Makeover studio",
-      "text": "Soft lighting. You try a new look in AR.",
-      "choices": [
-        {
-          "label": "Keep the look",
-          "next": "park",
-          "gain": [
-            "soft-look"
-          ]
-        },
-        {
-          "label": "Back",
-          "next": "friend"
-        }
-      ]
-    },
-    "park": {
-      "title": "Evening walk",
-      "text": "Cool air. City lights. You feel lighter.",
-      "choices": [
-        {
-          "label": "Take a selfie",
-          "next": "home",
-          "gain": [
-            "spark-photo"
-          ]
-        },
-        {
-          "label": "Call it a night",
-          "next": "home"
-        }
-      ]
-    },
     "home": {
       "title": "Save point",
-      "text": "Back home, a small collection on your desk.",
-      "choices": [
-        {
-          "label": "Peek inventory",
-          "next": "inventory"
-        },
-        {
-          "label": "Play again",
-          "next": "intro"
-        }
-      ]
-    },
-    "inventory": {
-      "title": "Your finds",
-      "text": "Open your profile to see everything you kept.",
+      "text": "Back home. Your finds rest on the desk like fireflies in a jar.",
       "choices": [
         {
           "label": "Open profile",
-          "next": "home"
+          "href": "/accounts/me/"
         },
         {
           "label": "Play again",
@@ -239,4 +191,3 @@
     }
   }
 }
-
