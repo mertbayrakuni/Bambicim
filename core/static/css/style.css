@@ -489,33 +489,3 @@ body[data-theme="white"] {
     opacity: .5;
     cursor: not-allowed;
 }
-
-/* ===== Butterfly cursor follower ===== */
-
-
-/* only on precise pointers (not touch) */
-@media (pointer: fine) {
-    /* try svg, then png fallback, then auto */
-    html {
-        cursor: var(--cursor-svg), var(--cursor-png), auto;
-    }
-
-    /* keep normal hand on real interactive elements */
-    a, button, [role="button"], summary {
-        cursor: pointer;
-    }
-
-    /* keep proper text caret where it matters */
-    input, textarea, select, [contenteditable="true"], pre, code {
-        cursor: text;
-    }
-
-    /* nice extras */
-    [draggable="true"], .drag {
-        cursor: grab;
-    }
-
-    .drag:active {
-        cursor: grabbing;
-    }
-}
