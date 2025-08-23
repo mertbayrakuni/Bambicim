@@ -16,28 +16,6 @@
             --cursor-svg: url("{% static 'images/svg/butterfly-two-color.svg' %}") 12 12;
             --cursor-png: url("{% static 'images/png/pink-butterfly-2.png' %}") 12 12;
         }
-
-        @media (pointer: fine) {
-            html {
-                cursor: var(--cursor-svg), var(--cursor-png), auto;
-            }
-
-            a, button, [role="button"], summary {
-                cursor: pointer;
-            }
-
-            input, textarea, select, [contenteditable="true"], pre, code {
-                cursor: text;
-            }
-
-            [draggable="true"], .drag {
-                cursor: grab;
-            }
-
-            .drag:active {
-                cursor: grabbing;
-            }
-        }
     </style>
 
     {% block head %}{% endblock %}
@@ -55,6 +33,13 @@
         <button type="button" class="swatch hot" data-set-theme="hot" title="Hot Pink"></button>
         <button type="button" class="swatch white" data-set-theme="white" title="Snow White"></button>
     </div>
+    {% if request.user.is_authenticated %}
+        <span class="hello">Hi, {{ request.user.username }}</span>
+        <a class="ghost" href="{% url 'logout' %}">Log out</a>
+    {% else %}
+        <a class="ghost" href="{% url 'login' %}">Sign in</a>
+        <a class="pill" href="{% url 'signup' %}">Sign up</a>
+    {% endif %}
 </header>
 
 {% block content %}{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-card">
+  <h2>Create account</h2>
+  <form method="post" action="{% url 'signup' %}">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div>{{ form.username.label_tag }} {{ form.username }}</div>
+    <div>{{ form.password1.label_tag }} {{ form.password1 }}</div>
+    <div>{{ form.password2.label_tag }} {{ form.password2 }}</div>
+    <button class="cta" type="submit">Sign up</button>
+  </form>
+  <p class="muted">Already have one? <a href="{% url 'login' %}">Sign in</a></p>
+</div>
+{% endblock %}

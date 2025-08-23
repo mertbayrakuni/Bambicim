@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-card">
+  <h2>Sign in</h2>
+  <form method="post" action="{% url 'login' %}">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div>{{ form.username.label_tag }} {{ form.username }}</div>
+    <div>{{ form.password.label_tag }} {{ form.password }}</div>
+    <input type="hidden" name="next" value="{{ next|default:'/' }}">
+    <button class="cta" type="submit">Sign in</button>
+  </form>
+  <p class="muted">No account? <a href="{% url 'signup' %}">Create one</a></p>
+</div>
+{% endblock %}
