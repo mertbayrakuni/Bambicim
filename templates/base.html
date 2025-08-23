@@ -11,13 +11,6 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="icon" href="{% static 'images/svg/butterfly.svg' %}">
     {% load static %}
-    <style>
-        :root {
-            --cursor-svg: url("{% static 'images/svg/butterfly-two-color.svg' %}") 12 12;
-            --cursor-png: url("{% static 'images/png/pink-butterfly-2.png' %}") 12 12;
-        }
-    </style>
-
     {% block head %}{% endblock %}
 </head>
 <body class="b-bg b-text">
@@ -35,8 +28,11 @@
     </div>
     {% if request.user.is_authenticated %}
         <span class="hello">Hi, {{ request.user.username }}</span>
-        <a class="ghost" href="{% url 'logout' %}">Log out</a>
-    {% else %}
+        <form method="post" action="{% url 'logout' %}" style="display:inline">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="/"/>
+            <button class="ghost" type="submit">Log out</button>
+        </form>    {% else %}
         <a class="ghost" href="{% url 'login' %}">Sign in</a>
         <a class="pill" href="{% url 'signup' %}">Sign up</a>
     {% endif %}
