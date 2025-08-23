@@ -5,47 +5,238 @@
       "title": "First step",
       "text": "A quiet evening. Code on one screen, a mirror app on the other.",
       "choices": [
-        {"label": "Open docs", "next": "docs"},
-        {"label": "Open the mirror", "next": "mirror"}
+        {
+          "label": "Open docs",
+          "next": "docs"
+        },
+        {
+          "label": "Open the mirror",
+          "next": "mirror"
+        }
       ]
     },
     "docs": {
       "title": "Variables & voice",
       "text": "You rename a variable, then try your name, softer.",
       "choices": [
-        {"label": "Practice a loop", "next": "loop"},
-        {"label": "Back", "next": "intro"}
+        {
+          "label": "Practice a loop",
+          "next": "loop"
+        },
+        {
+          "label": "Back",
+          "next": "intro"
+        }
       ]
     },
     "mirror": {
       "title": "Glimmer",
       "text": "The reflection smiles back. Save that feeling like a snippet.",
-      "choices": [{"label": "Back", "next": "intro"}]
+      "choices": [
+        {
+          "label": "Pin hair with a scrunchie",
+          "next": "loop",
+          "gain": [
+            "pink-scrunchie"
+          ]
+        },
+        {
+          "label": "Back",
+          "next": "intro"
+        }
+      ]
     },
     "loop": {
       "title": "Tiny triumphs",
       "text": "for…of, map — progress is iterative.",
       "choices": [
-        {"label": "Ship a tiny feature", "next": "ship", "set": {"shipped": true}},
-        {"label": "Back", "next": "docs"}
+        {
+          "label": "Ship a tiny feature",
+          "next": "ship",
+          "set": {
+            "shipped": true
+          }
+        },
+        {
+          "label": "Refactor a helper",
+          "next": "ship"
+        }
       ]
     },
     "ship": {
       "title": "Ship it",
       "text": "Small but honest. You’re becoming the person who builds.",
       "choices": [
-        {"label": "Continue", "next": "chapter2", "if": {"shipped": true}},
-        {"label": "Play again", "next": "intro"}
+        {
+          "label": "Continue",
+          "next": "chapter2",
+          "if": {
+            "shipped": true
+          }
+        },
+        {
+          "label": "Play again",
+          "next": "intro"
+        }
       ]
     },
     "chapter2": {
-      "title": "New chapter",
-      "text": "A gentle fork: study, rest, or reach out to a friend.",
+      "title": "Fork in the day",
+      "text": "Study, rest, or reach out to a friend.",
       "choices": [
-        {"label": "Study JS arrays", "next": "study"},
-        {"label": "Rest", "next": "rest"},
-        {"label": "Message a friend", "next": "friend"}
+        {
+          "label": "Study JS arrays",
+          "next": "study",
+          "gain": [
+            "sticky-notes"
+          ]
+        },
+        {
+          "label": "Rest a moment",
+          "next": "rest"
+        },
+        {
+          "label": "Message a friend",
+          "next": "friend",
+          "gain": [
+            "warm-emoji"
+          ]
+        }
+      ]
+    },
+    "study": {
+      "title": "Study break",
+      "text": "You nail splice vs slice, reward yourself with a treat.",
+      "choices": [
+        {
+          "label": "Tea with lip balm",
+          "next": "shop",
+          "gain": [
+            "lip-balm"
+          ]
+        },
+        {
+          "label": "Back",
+          "next": "chapter2"
+        }
+      ]
+    },
+    "rest": {
+      "title": "Gentle reset",
+      "text": "Breath in, breath out, shoulders down.",
+      "choices": [
+        {
+          "label": "Put on a soft tee",
+          "next": "shop",
+          "gain": [
+            "soft-tee"
+          ]
+        },
+        {
+          "label": "Back",
+          "next": "chapter2"
+        }
+      ]
+    },
+    "friend": {
+      "title": "Ping",
+      "text": "Your friend: “Proud of you. Try the makeover app?”",
+      "choices": [
+        {
+          "label": "Open makeover",
+          "next": "studio",
+          "gain": [
+            "confidence"
+          ]
+        },
+        {
+          "label": "Back",
+          "next": "chapter2"
+        }
+      ]
+    },
+    "shop": {
+      "title": "Little shop",
+      "text": "You browse accessories that feel like you.",
+      "choices": [
+        {
+          "label": "Pick a butterfly pin",
+          "next": "park",
+          "gain": [
+            "butterfly-pin"
+          ]
+        },
+        {
+          "label": "Pick a pink notebook",
+          "next": "park",
+          "gain": [
+            "pink-notebook"
+          ]
+        }
+      ]
+    },
+    "studio": {
+      "title": "Makeover studio",
+      "text": "Soft lighting. You try a new look in AR.",
+      "choices": [
+        {
+          "label": "Keep the look",
+          "next": "park",
+          "gain": [
+            "soft-look"
+          ]
+        },
+        {
+          "label": "Back",
+          "next": "friend"
+        }
+      ]
+    },
+    "park": {
+      "title": "Evening walk",
+      "text": "Cool air. City lights. You feel lighter.",
+      "choices": [
+        {
+          "label": "Take a selfie",
+          "next": "home",
+          "gain": [
+            "spark-photo"
+          ]
+        },
+        {
+          "label": "Call it a night",
+          "next": "home"
+        }
+      ]
+    },
+    "home": {
+      "title": "Save point",
+      "text": "Back home, a small collection on your desk.",
+      "choices": [
+        {
+          "label": "Peek inventory",
+          "next": "inventory"
+        },
+        {
+          "label": "Play again",
+          "next": "intro"
+        }
+      ]
+    },
+    "inventory": {
+      "title": "Your finds",
+      "text": "Open your profile to see everything you kept.",
+      "choices": [
+        {
+          "label": "Open profile",
+          "next": "home"
+        },
+        {
+          "label": "Play again",
+          "next": "intro"
+        }
       ]
     }
   }
 }
+

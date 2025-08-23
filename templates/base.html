@@ -25,15 +25,14 @@
 
 
     <div class="auth">
-        {% if user.is_authenticated %}
-            <span class="muted">Hi, {{ user.username }}</span>
-            <form method="post" action="{% url 'logout' %}">
-                {% csrf_token %}
-                <button type="submit" class="ghost small">Log out</button>
+        {% if request.user.is_authenticated %}
+            <a href="{% url 'profile' %}" class="nav-user">Hi, {{ request.user.username }}</a>
+            <form action="{% url 'logout' %}" method="post" style="display:inline">{% csrf_token %}
+                <button class="btn btn--light" type="submit">Log out</button>
             </form>
         {% else %}
-            <a class="ghost small" href="{% url 'login' %}">Sign in</a>
-            <a class="pill small" href="{% url 'signup' %}">Sign up</a>
+            <a class="btn btn--ghost" href="{% url 'login' %}">Sign in</a>
+            <a class="btn btn--solid" href="{% url 'signup' %}">Sign up</a>
         {% endif %}
 
         <div class="theme-toggle" aria-label="Theme">
