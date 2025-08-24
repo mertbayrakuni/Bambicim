@@ -9,13 +9,13 @@ from .models import (
     Scene, Choice, ChoiceGain,
 )
 
-# --- Branding ---
+# ── Branding ───────────────────────────────────────────────────────────────────
 admin.site.site_header = "Bambicim Admin"
 admin.site.site_title = "Bambicim Admin"
 admin.site.index_title = "Welcome, sparkle guardian ✨"
 
 
-# --- Inline: show a user's inventory on their user page ---
+# ── User + Inventory inline ────────────────────────────────────────────────────
 class InventoryInline(admin.TabularInline):
     model = Inventory
     extra = 0
@@ -24,7 +24,6 @@ class InventoryInline(admin.TabularInline):
     ordering = ("item__name",)
 
 
-# --- Extend default User admin ---
 User = get_user_model()
 try:
     admin.site.unregister(User)
@@ -40,7 +39,7 @@ class UserAdmin(DjangoUserAdmin):
     list_filter = ("is_staff", "is_superuser", "is_active")
 
 
-# --- Items ---
+# ── Items ──────────────────────────────────────────────────────────────────────
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
     list_display = ("emoji", "name", "slug", "holders", "total_qty")
@@ -48,9 +47,9 @@ class ItemAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
     ordering = ("name",)
 
-    # Safer counts (works across DBs, avoids 500s)
+    # Robust counts (avoids DB-specific 500s)
     def holders(self, obj):
-        # distinct users who hold > 0
+        # number of distinct users who hold > 0 of this item
         return obj.inventory_set.filter(qty__gt=0).values("user").distinct().count()
 
     holders.short_description = "Holders"
@@ -61,7 +60,7 @@ class ItemAdmin(admin.ModelAdmin):
     total_qty.short_description = "Total Qty"
 
 
-# --- Inventory ---
+# ── Inventory ──────────────────────────────────────────────────────────────────
 @admin.register(Inventory)
 class InventoryAdmin(admin.ModelAdmin):
     list_display = ("user", "item", "qty")
@@ -90,7 +89,7 @@ class InventoryAdmin(admin.ModelAdmin):
         return resp
 
 
-# --- Game sessions ---
+# ── Sessions & logs ────────────────────────────────────────────────────────────
 @admin.register(GameSession)
 class GameSessionAdmin(admin.ModelAdmin):
     list_display = ("user", "started_at", "last_scene", "done")
@@ -100,7 +99,6 @@ class GameSessionAdmin(admin.ModelAdmin):
     ordering = ("-started_at",)
 
 
-# --- Choice logs ---
 @admin.register(ChoiceLog)
 class ChoiceLogAdmin(admin.ModelAdmin):
     list_display = ("user", "scene", "choice", "made_at")
@@ -110,7 +108,7 @@ class ChoiceLogAdmin(admin.ModelAdmin):
     ordering = ("-made_at",)
 
 
-# --- Narrative builder: Scenes, Choices, Choice gains ---
+# ── Narrative builder: Scenes → Choices → Gains ────────────────────────────────
 class ChoiceGainInline(admin.TabularInline):
     model = ChoiceGain
     extra = 0
@@ -120,7 +118,12 @@ class ChoiceGainInline(admin.TabularInline):
 
 
 class ChoiceInline(admin.TabularInline):
+    """
+    Choices attached to a Scene. NB: the model also has `next_scene` FK to Scene,
+    so we must tell Django which FK links this inline to the parent.
+    """
     model = Choice
+    fk_name = "scene"  # ← fixes “more than one ForeignKey to Scene” error
     extra = 1
     show_change_link = True
     autocomplete_fields = ("next_scene",)
