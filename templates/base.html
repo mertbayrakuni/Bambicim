@@ -10,19 +10,25 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="icon" href="{% static 'images/svg/butterfly.svg' %}">
-    {% load static %}
     {% block head %}{% endblock %}
 </head>
+
 <body class="b-bg b-text">
+{# ---------- Top nav ---------- #}
 <header class="b-nav">
-    <a href="/" class="brand">BAMBİCİM</a>
+    <a href="{% url 'home' %}" class="brand">BAMBİCİM</a>
 
     <nav class="main-nav">
-        <a href="#work">Work</a>
-        <a href="#game">Bambi Game</a>
-        <a class="pill" href="#contact">Let’s talk</a>
-    </nav>
+        {# Use absolute anchors so they work from any page #}
+        <a href="{% url 'home' %}#work" data-anchor="work">Work</a>
+        <a href="{% url 'home' %}#game" data-anchor="game">Bambi Game</a>
+        <a class="pill" href="{% url 'home' %}#contact" data-anchor="contact">Let’s talk</a>
 
+        {# Staff-only quick link to Django admin #}
+        {% if request.user.is_staff %}
+            <a class="pill ghost admin-only" href="{% url 'admin:index' %}">Admin</a>
+        {% endif %}
+    </nav>
 
     <div class="auth">
         {% if request.user.is_authenticated %}
@@ -43,18 +49,42 @@
     </div>
 </header>
 
+{# ---------- Page content ---------- #}
+<main id="content">
+    {% block content %}{% endblock %}
+</main>
 
-{% block content %}{% endblock %}
-
+{# ---------- Footer ---------- #}
 <footer class="b-container b-footer">
     <span>© <span id="y"></span> Bambicim</span>
     <span class="muted">Made with ✨ in Türkiye</span>
 </footer>
 
+{# year + smooth scroll for home-page anchors #}
 <script>
+    // footer year
     document.getElementById('y').textContent = new Date().getFullYear();
+
+    // If we're already on the home page, make anchor clicks smooth-scroll instead of reloading.
+    (function () {
+        var onHome = location.pathname === "{% url 'home' %}";
+        if (!onHome) return; // from other pages we want the normal navigation to /#id
+
+        document.querySelectorAll('a[data-anchor]').forEach(function (a) {
+            a.addEventListener('click', function (e) {
+                var id = a.getAttribute('data-anchor');
+                var target = document.getElementById(id);
+                if (target) {
+                    e.preventDefault();
+                    target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                    history.replaceState(null, '', '#' + id);
+                }
+            });
+        });
+    })();
 </script>
-</body>
+
 <script defer src="{% static 'js/script.js' %}"></script>
 <script defer src="{% static 'game/engine.js' %}"></script>
+</body>
 </html>
