@@ -1,20 +1,17 @@
-import json
 import logging
 import os
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail, BadHeaderError
-from django.db.models import F
-from django.http import JsonResponse, HttpResponseBadRequest
 from django.shortcuts import render, redirect
-from django.utils import timezone
+import json
+from django.contrib.auth.decorators import login_required
+from django.db.models import F
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST, require_GET
-
 from utils.github import get_recent_public_repos_cached
-from .models import Item, Inventory, ChoiceLog
 
 log = logging.getLogger("app")
 
@@ -52,16 +49,20 @@ def contact(request):
     return redirect("home")
 
 
+from .models import Item, Inventory, ChoiceLog
+
 ITEM_DEFS = {
-    "pink-skirt": {"name": "Pink Skirt", "emoji": "🩷"},
+    "pink-skirt": {"name": "Pink Skirt", "emoji": "💗"},
     "lip-gloss": {"name": "Lip Gloss", "emoji": "💄"},
     "hair-bow": {"name": "Hair Bow", "emoji": "🎀"},
-    "cat-ears": {"name": "Cat Ears", "emoji": "😼"},
+    "hair-ribbon": {"name": "Hair Ribbon", "emoji": "🎀"},
+    "cat-ears": {"name": "Cat Ears", "emoji": "🐱"},
     "combat-boots": {"name": "Combat Boots", "emoji": "🥾"},
 }
 
 
 def _ensure_item(slug: str) -> Item:
+    """Create item on first sight with nice defaults."""
     defaults = ITEM_DEFS.get(slug, {"name": slug.replace("-", " ").title(), "emoji": "✨"})
     obj, _ = Item.objects.get_or_create(slug=slug, defaults=defaults)
     return obj
@@ -72,30 +73,34 @@ def _ensure_item(slug: str) -> Item:
 @login_required
 def game_choice(request):
     """
-    Accepts JSON like:
-    {
-      "scene": "shop",
-      "choice": "skirt",
-      "gain": [{"slug": "pink-skirt", "qty": 1}, ...]
-    }
+    Accepts JSON like either:
+      {"scene":"shop","label":"Try skirt","gain":["pink-skirt","hair-bow"]}
+    or:
+      {"scene":"shop","label":"Try skirt","gain":[{"slug":"pink-skirt","qty":1}]}
     """
-    data = json.loads(request.body or "{}")
-    scene_id = data.get("scene") or ""
-    choice_id = data.get("choice") or ""
+    try:
+        data = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse({"ok": False, "error": "bad-json"}, status=400)
+
+    scene_id = (data.get("scene") or "").strip()
+    label = (data.get("label") or "").strip()
     awards = data.get("gain") or []
 
     gained = []
+
     for award in awards:
-        slug = (award or {}).get("slug")
-        qty = int((award or {}).get("qty", 1))
+        # accept string slugs or dicts with slug/qty
+        if isinstance(award, str):
+            slug, qty = award.strip(), 1
+        else:
+            slug = (award or {}).get("slug", "").strip()
+            qty = int((award or {}).get("qty", 1) or 1)
+
         if not slug or qty <= 0:
             continue
 
-        # create item on first sight (nice for prototyping)
-        item, _ = Item.objects.get_or_create(
-            slug=slug,
-            defaults={"name": slug.replace("-", " ").title(), "emoji": "✨"},
-        )
+        item = _ensure_item(slug)
 
         inv, _ = Inventory.objects.get_or_create(
             user=request.user, item=item, defaults={"qty": 0}
@@ -103,12 +108,11 @@ def game_choice(request):
         Inventory.objects.filter(pk=inv.pk).update(qty=F("qty") + qty)
         inv.refresh_from_db()
 
-        gained.append(
-            {"slug": item.slug, "name": item.name, "qty": qty, "emoji": item.emoji}
-        )
+        gained.append({"slug": item.slug, "name": item.name, "qty": qty, "emoji": item.emoji})
 
-    if scene_id or choice_id:
-        ChoiceLog.objects.create(user=request.user, scene=scene_id, choice=choice_id)
+    # store the click (label is nicer than an opaque choice id)
+    if scene_id or label:
+        ChoiceLog.objects.create(user=request.user, scene=scene_id, choice=label)
 
     return JsonResponse({"ok": True, "gained": gained})
 

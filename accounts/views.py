@@ -1,7 +1,9 @@
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect
+from django.shortcuts import render
+
 from core.models import Inventory
 
 
@@ -19,9 +21,10 @@ def signup(request):
 
 @login_required
 def profile_page(request):
-    rows = (
-        Inventory.objects.filter(user=request.user)
+    inv = (
+        Inventory.objects
+        .filter(user=request.user)
         .select_related("item")
         .order_by("item__name")
     )
-    return render(request, "profile.html", {"rows": rows})
+    return render(request, "profile.html", {"inv": inv})
