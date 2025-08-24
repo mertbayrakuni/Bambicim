@@ -4,9 +4,12 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.db.models import Sum
 
-from .models import Item, Inventory, GameSession, ChoiceLog
+from .models import (
+    Item, Inventory, GameSession, ChoiceLog,
+    Scene, Choice, ChoiceGain,
+)
 
-# --- Branding (nice touch) ---
+# --- Branding ---
 admin.site.site_header = "Bambicim Admin"
 admin.site.site_title = "Bambicim Admin"
 admin.site.index_title = "Welcome, sparkle guardian ✨"
@@ -18,11 +21,10 @@ class InventoryInline(admin.TabularInline):
     extra = 0
     autocomplete_fields = ("item",)
     fields = ("item", "qty")
-    readonly_fields = ()
     ordering = ("item__name",)
 
 
-# --- Extend the default User admin to include inventory inline ---
+# --- Extend default User admin ---
 User = get_user_model()
 try:
     admin.site.unregister(User)
@@ -46,17 +48,10 @@ class ItemAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
     ordering = ("name",)
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        # annotate how many users have this item, and total qty
-        return qs.annotate(
-            _holders=Sum("inventory__qty__gt"),  # Django won't aggregate booleans, we compute below
-            _total=Sum("inventory__qty"),
-        )
-
+    # Safer counts (works across DBs, avoids 500s)
     def holders(self, obj):
-        # fallback if DB can’t aggregate boolean; count non-zero rows
-        return obj.inventory_set.exclude(qty=0).count()
+        # distinct users who hold > 0
+        return obj.inventory_set.filter(qty__gt=0).values("user").distinct().count()
 
     holders.short_description = "Holders"
 
@@ -95,7 +90,7 @@ class InventoryAdmin(admin.ModelAdmin):
         return resp
 
 
-# --- Sessions ---
+# --- Game sessions ---
 @admin.register(GameSession)
 class GameSessionAdmin(admin.ModelAdmin):
     list_display = ("user", "started_at", "last_scene", "done")
@@ -113,3 +108,40 @@ class ChoiceLogAdmin(admin.ModelAdmin):
     date_hierarchy = "made_at"
     list_filter = ("scene",)
     ordering = ("-made_at",)
+
+
+# --- Narrative builder: Scenes, Choices, Choice gains ---
+class ChoiceGainInline(admin.TabularInline):
+    model = ChoiceGain
+    extra = 0
+    autocomplete_fields = ("item",)
+    fields = ("item", "qty")
+    ordering = ("item__name",)
+
+
+class ChoiceInline(admin.TabularInline):
+    model = Choice
+    extra = 1
+    show_change_link = True
+    autocomplete_fields = ("next_scene",)
+    fields = ("code", "label", "order", "next_scene", "href", "action", "if_flags", "set_flags")
+    ordering = ("order", "code")
+
+
+@admin.register(Scene)
+class SceneAdmin(admin.ModelAdmin):
+    list_display = ("key", "title", "is_start")
+    list_filter = ("is_start",)
+    search_fields = ("key", "title")
+    inlines = [ChoiceInline]
+    ordering = ("key",)
+
+
+@admin.register(Choice)
+class ChoiceAdmin(admin.ModelAdmin):
+    list_display = ("scene", "code", "label", "order", "next_scene", "href", "action")
+    list_filter = ("scene",)
+    search_fields = ("label", "scene__key", "code")
+    autocomplete_fields = ("scene", "next_scene")
+    inlines = [ChoiceGainInline]
+    ordering = ("scene__key", "order", "code")

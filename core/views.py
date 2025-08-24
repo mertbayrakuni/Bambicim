@@ -84,7 +84,7 @@ def game_choice(request):
         return JsonResponse({"ok": False, "error": "bad-json"}, status=400)
 
     scene_id = (data.get("scene") or "").strip()
-    label = (data.get("label") or "").strip()
+    label = (data.get("label") or data.get("choice") or "").strip()
     awards = data.get("gain") or []
 
     gained = []
