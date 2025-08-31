@@ -1,21 +1,20 @@
+import json
 import logging
 import os
 
 from django.conf import settings
 from django.contrib import messages
-from django.core.mail import send_mail, BadHeaderError
-from django.shortcuts import render, redirect
-import json
 from django.contrib.auth.decorators import login_required
+from django.core.mail import send_mail, BadHeaderError
 from django.db.models import F
+from django.http import JsonResponse, Http404, HttpResponse
+from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_POST
-from utils.github import get_recent_public_repos_cached
-from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_GET
-from django.db.models import Prefetch
+from django.views.decorators.http import require_POST
 
-from .models import Scene, Choice, ChoiceGain
+from utils.github import get_recent_public_repos_cached
+from .models import Scene
 
 log = logging.getLogger("app")
 
@@ -172,3 +171,7 @@ def game_scenes_json(request):
         payload["scenes"][sc.key] = node
 
     return JsonResponse(payload)
+
+
+def healthz(_request):  # put near other imports
+    return HttpResponse("ok", content_type="text/plain")

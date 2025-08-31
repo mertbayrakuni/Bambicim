@@ -3,7 +3,7 @@ from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
 from django.views.generic import TemplateView
 
-from core.views import home, contact
+from core.views import home, contact, healthz
 from core import views as core_views, views
 from accounts import views as accounts_views
 
@@ -17,6 +17,7 @@ urlpatterns = [
     path("contact/", contact, name="contact"),
     path("accounts/", include("django.contrib.auth.urls")),
     path("accounts/signup/", accounts_views.signup, name="signup"),
+    path("healthz", healthz),  # NEW
 
     # game
     path("game/choice", core_views.game_choice, name="game_choice"),
