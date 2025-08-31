@@ -10,11 +10,10 @@ from django.db.models import F
 from django.http import JsonResponse, Http404, HttpResponse
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_GET
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from utils.github import get_recent_public_repos_cached
-from .models import Scene
+from .models import Scene, Item, Inventory, ChoiceLog
 
 log = logging.getLogger("app")
 
@@ -41,18 +40,19 @@ def contact(request):
         subject = f"New lead — Bambicim: {name}"
         body = f"From: {name} <{email}>\n\n{msg}"
         try:
-            send_mail(subject, body,
-                      settings.DEFAULT_FROM_EMAIL,
-                      ["mert@bambicim.com", "ipek@bambicim.com"],
-                      fail_silently=False)
+            send_mail(
+                subject,
+                body,
+                settings.DEFAULT_FROM_EMAIL,
+                ["mert@bambicim.com", "ipek@bambicim.com"],
+                fail_silently=False,
+            )
             messages.success(request, "Thanks! We’ll get back to you shortly.")
         except BadHeaderError:
             messages.error(request, "Invalid header found.")
         return redirect("home")
     return redirect("home")
 
-
-from .models import Item, Inventory, ChoiceLog
 
 ITEM_DEFS = {
     "pink-skirt": {"name": "Pink Skirt", "emoji": "💗"},
@@ -80,6 +80,8 @@ def game_choice(request):
       {"scene":"shop","label":"Try skirt","gain":["pink-skirt","hair-bow"]}
     or:
       {"scene":"shop","label":"Try skirt","gain":[{"slug":"pink-skirt","qty":1}]}
+    or:
+      {"scene":"shop","label":"Try skirt","gain":[{"item":"pink-skirt","qty":1}]}
     """
     try:
         data = json.loads(request.body or "{}")
@@ -88,16 +90,15 @@ def game_choice(request):
 
     scene_id = (data.get("scene") or "").strip()
     label = (data.get("label") or data.get("choice") or "").strip()
-    awards = data.get("gain") or []
+    awards = data.get("gain") or data.get("gains") or []
 
     gained = []
 
     for award in awards:
-        # accept string slugs or dicts with slug/qty
         if isinstance(award, str):
             slug, qty = award.strip(), 1
         else:
-            slug = (award or {}).get("slug", "").strip()
+            slug = ((award or {}).get("item") or (award or {}).get("slug") or "").strip()
             qty = int((award or {}).get("qty", 1) or 1)
 
         if not slug or qty <= 0:
@@ -113,7 +114,6 @@ def game_choice(request):
 
         gained.append({"slug": item.slug, "name": item.name, "qty": qty, "emoji": item.emoji})
 
-    # store the click (label is nicer than an opaque choice id)
     if scene_id or label:
         ChoiceLog.objects.create(user=request.user, scene=scene_id, choice=label)
 
@@ -129,12 +129,7 @@ def game_inventory(request):
         .order_by("item__name")
     )
     items = [
-        {
-            "slug": r.item.slug,
-            "name": r.item.name,
-            "qty": r.qty,
-            "emoji": r.item.emoji,
-        }
+        {"slug": r.item.slug, "name": r.item.name, "qty": r.qty, "emoji": r.item.emoji}
         for r in rows
     ]
     return JsonResponse({"items": items})
@@ -146,39 +141,44 @@ def _scene_key(scene):
 
 @require_GET
 def game_scenes_json(request):
-    start_scene = Scene.objects.filter(is_start=True).first() or Scene.objects.order_by("key").first()
+    start_scene = (
+            Scene.objects.filter(is_start=True).first()
+            or Scene.objects.order_by("key").first()
+    )
     if not start_scene:
         raise Http404("No scenes found")
 
-    scenes_qs = Scene.objects.prefetch_related("choices__gains", "choices__next_scene").order_by("key")
+    scenes_qs = Scene.objects.prefetch_related(
+        "choices__gains", "choices__next_scene"
+    ).order_by("key")
 
     payload = {"start": _scene_key(start_scene), "scenes": {}}
 
     for sc in scenes_qs:
-        node = {
-            "id": sc.key,
-            "title": sc.title or "",
-            "text": sc.text or "",
-            "choices": [],
-        }
+        node = {"id": sc.key, "title": sc.title or "", "text": sc.text or "", "choices": []}
         for ch in sc.choices.all():  # related_name="choices"
             gains = [{"item": g.item.slug, "qty": g.qty} for g in ch.gains.all()]
             node["choices"].append({
                 "text": ch.label,
                 "target": ch.next_scene.key if ch.next_scene else None,
+                "href": ch.href or None,
                 "gains": gains,
             })
         payload["scenes"][sc.key] = node
 
+    # defensive: if DB looks broken, force static JSON fallback
     total_choices = sum(len(n.get("choices", [])) for n in payload["scenes"].values())
-    empty_labels = sum(1 for n in payload["scenes"].values()
-                       for c in n.get("choices", [])
-                       if not (c.get("text") or c.get("label")))
+    empty_labels = sum(
+        1
+        for n in payload["scenes"].values()
+        for c in n.get("choices", [])
+        if not (c.get("text") or c.get("label"))
+    )
     if total_choices == 0 or empty_labels >= total_choices:
-        return HttpResponse(status=404)  # force JSON fallback
+        return HttpResponse(status=404)
 
     return JsonResponse(payload)
 
 
-def healthz(_request):  # put near other imports
+def healthz(_request):
     return HttpResponse("ok", content_type="text/plain")

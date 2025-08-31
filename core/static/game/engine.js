@@ -1,7 +1,7 @@
-/* core/static/game/engine.js  —  Bambi Game (compat + CSRF + logs)
+/* core/static/game/engine.js — Bambi Game (pink, link-aware, CSRF, logs)
    - Works with both shapes:
-       { text, target, gains: [{item, qty}] }
-       { label, next,  gain:  ["slug" | {slug, qty}] }
+       { text, target, gains: [{item, qty}], href? }
+       { label, next,  gain:  ["slug" | {slug, qty}], href? }
    - Loads /game/scenes first; falls back to /static/game/scenes.json
    - Best-effort POST to /game/choice with CSRF; failure doesn’t block UI
 */
@@ -9,6 +9,7 @@
 (function () {
     // ---------- tiny helpers ----------
     const SAVE_KEY = "bambiGameSave";
+    const SHOW_INV = false; // keep saving to DB but hide inventory on homepage
 
     const qs = (sel, root) => (root || document).querySelector(sel);
     const el = (tag, attrs, ...kids) => {
@@ -57,6 +58,7 @@
     function normalizeChoice(ch) {
         const label = (ch.text ?? ch.label ?? "Continue").toString();
         const target = (ch.target ?? ch.next ?? null);
+        const href = (ch.href ?? null);
         const gainsRaw = (ch.gains ?? ch.gain ?? []);
         const gains = [];
 
@@ -70,7 +72,7 @@
                 }
             }
         }
-        return {label, target, gains};
+        return {label, target, href, gains};
     }
 
     function normalizeScenes(payload) {
@@ -89,7 +91,7 @@
     const mount = (container) => {
         container.classList.add("b-game");
 
-        const invBar = el("div", {class: "inventory"});
+        const invBar = el("div", {class: "inventory-bar"});
         const resetBtn = el("button", {class: "reset-btn"}, "Reset");
         resetBtn.addEventListener("click", () => {
             Store.clear();
@@ -104,7 +106,8 @@
         const choicesWrap = el("div", {class: "choices"});
         card.append(sceneTitle, sceneText, choicesWrap);
 
-        container.append(invBar, card);
+        if (SHOW_INV) container.append(invBar);
+        container.append(card);
 
         let scenes = {};
         let startKey = null;
@@ -127,14 +130,14 @@
                     headers: {
                         "Content-Type": "application/json",
                         "X-CSRFToken": csrftoken,
-                        "X-Requested-With": "fetch"
+                        "X-Requested-With": "fetch",
                     },
                     credentials: "same-origin",
                     body: JSON.stringify({
                         scene: sceneKey,
                         label: choice.label,
-                        gain: choice.gains
-                    })
+                        gain: choice.gains, // [{item, qty}]
+                    }),
                 }).catch(() => {
                 });
             } catch { /* ignore */
@@ -150,15 +153,14 @@
             state.current = key;
             Store.save(state);
 
-            log("Render scene:", key, s);
             sceneTitle.textContent = s.title || "";
             sceneText.textContent = s.text || "";
 
-            // inventory
-            invBar.querySelector(".inventory-wrap")?.remove();
-            invBar.append(renderInventory(state.inv));
+            if (SHOW_INV) {
+                invBar.querySelector(".inventory-wrap")?.remove();
+                invBar.append(renderInventory(state.inv));
+            }
 
-            // choices
             choicesWrap.replaceChildren();
             for (const ch of s.choices || []) {
                 const btn = el("button", {class: "choice-btn"}, ch.label || "Continue");
@@ -166,6 +168,14 @@
                     log("Click choice:", ch);
                     applyGains(ch.gains);
                     safePostChoice(key, ch);
+
+                    if (ch.href) {
+                        const go = ch.href;
+                        if (/^https?:\/\//i.test(go)) window.location.href = go;
+                        else window.location.assign(go);
+                        return;
+                    }
+
                     const next = ch.target;
                     if (!next) return;
                     if (!scenes[next]) {
@@ -187,7 +197,7 @@
                     const data = await r.json();
                     log("Loaded scenes from:", url);
                     return normalizeScenes(data);
-                } catch { /* continue */
+                } catch {
                 }
             }
             throw new Error("No scenes JSON available");
@@ -195,18 +205,16 @@
 
         async function start() {
             const saved = Store.load();
-            if (saved && typeof saved === "object")
+            if (saved && typeof saved === "object") {
                 state = {current: saved.current || null, inv: saved.inv || {}};
-
+            }
             try {
                 const loaded = await loadScenes();
                 scenes = loaded.scenes;
                 startKey = loaded.start;
-
-                // defensive: if saved.current vanished, fallback to start
                 const initial = (state.current && scenes[state.current]) ? state.current : startKey;
 
-                // debug: detect broken links at boot
+                // Debug: broken links at boot
                 const broken = [];
                 for (const [k, s] of Object.entries(scenes)) {
                     (s.choices || []).forEach(c => {

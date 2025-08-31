@@ -90,17 +90,14 @@ a {
     margin-top: 40px;
 }
 
-/* Pills & buttons */
-.cta,
-.ghost,
-.pill,
-.choice-btn {
+/* Pills & buttons (pink default) */
+.cta, .ghost, .pill, .choice-btn {
     padding: 12px 18px;
     border-radius: 14px;
     font-weight: 700;
 }
 
-.cta {
+.cta, .pill {
     background: linear-gradient(90deg, var(--accent), var(--accent2));
     color: #120812;
 }
@@ -111,12 +108,6 @@ a {
     color: var(--text);
 }
 
-.pill {
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    color: #120812;
-}
-
-/* Specific styling for the 'ghost' pills you wanted to be pink */
 .b-nav .pill.ghost,
 .b-nav form button.ghost {
     background: linear-gradient(90deg, var(--accent), var(--accent2)) !important;
@@ -125,10 +116,7 @@ a {
     font-weight: 800;
 }
 
-
-/* Small pill sizing for nav actions */
-.b-nav .pill.small,
-.b-nav .ghost.small {
+.b-nav .pill.small, .b-nav .ghost.small {
     padding: 8px 12px;
     border-radius: 12px;
     font-size: .95rem;
@@ -164,7 +152,6 @@ a {
     color: var(--muted);
 }
 
-/* auth block on the right */
 .b-nav .auth {
     justify-self: end;
     display: flex;
@@ -172,15 +159,14 @@ a {
     gap: 10px;
 }
 
-/* reset default button look inside forms (for logout submit) */
 .b-nav form {
     margin: 0;
 }
 
 .b-nav form button {
-    all: unset; /* wipe native button styles */
+    all: unset;
     display: inline-block;
-    padding: 8px 12px; /* re-apply small sizing */
+    padding: 8px 12px;
     border-radius: 12px;
     font-weight: 700;
     cursor: pointer;
@@ -247,12 +233,11 @@ a {
     color: transparent;
 }
 
-/* CTA row + badges under hero */
 .cta-row {
     display: flex;
     gap: 12px;
     margin-top: 18px;
-    align-items: center; /* This fixes the alignment issue */
+    align-items: center;
 }
 
 .badges {
@@ -318,7 +303,7 @@ a {
 }
 
 /* ==========================================================================
-   5) FEATURE CARDS (the three boxes under hero)
+   5) FEATURE CARDS
    ========================================================================== */
 .b-cards {
     display: grid;
@@ -343,11 +328,11 @@ a {
 }
 
 /* ==========================================================================
-   6) “SELECTED WORK” GRID (GitHub cards)
+   6) “SELECTED WORK” GRID
    ========================================================================== */
 .work-grid {
     display: grid;
-    grid-template-columns: 1fr; /* phones: 1 col */
+    grid-template-columns: 1fr;
     gap: 16px;
 }
 
@@ -379,7 +364,7 @@ a {
 
 .work-thumb {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 16/9;
     object-fit: cover;
     display: block;
 }
@@ -408,7 +393,7 @@ a {
 }
 
 /* ==========================================================================
-   7) CONTACT BLOCK
+   7) CONTACT
    ========================================================================== */
 .b-contact {
     margin-top: 12px;
@@ -427,8 +412,7 @@ a {
     gap: 12px;
 }
 
-.contact input,
-.contact textarea {
+.contact input, .contact textarea {
     width: 100%;
     background: #0f0f16;
     color: var(--text);
@@ -482,33 +466,72 @@ a {
 .choices {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 12px;
+    margin-top: 10px;
 }
 
+/* pink buttons */
 .choice-btn {
-    border: 1px solid var(--line);
-    background: var(--card);
-    color: var(--text);
-    border-radius: var(--radius-sm);
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    color: #120812;
+    border: none;
+    font-weight: 800;
     padding: 10px 14px;
-    font-weight: 600;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: transform .12s ease, background .12s ease;
+    transition: transform .12s ease, filter .12s ease;
 }
 
 .choice-btn:hover {
     transform: translateY(-1px);
+    filter: brightness(1.06);
+}
+
+/* inventory bar (only visible if SHOW_INV=true in JS) */
+.inventory-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0 18px;
+}
+
+.inventory-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.inventory-label {
+    opacity: .8;
+}
+
+.inventory-item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    line-height: 1.2;
+}
+
+.reset-btn {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background .12s ease, transform .12s ease;
+}
+
+.reset-btn:hover {
     background: var(--line);
+    color: var(--text);
+    transform: translateY(-1px);
 }
-
-.choice-btn[disabled] {
-    opacity: .5;
-    cursor: not-allowed;
-}
-
 
 /* ==========================================================================
-   9) AUTH PAGES (login / signup)
+   9) AUTH
    ========================================================================== */
 .auth-card {
     max-width: 440px;
@@ -558,7 +581,7 @@ a {
 }
 
 /* ==========================================================================
-   11) RESPONSIVE TWEAKS
+   11) RESPONSIVE
    ========================================================================== */
 @media (max-width: 920px) {
     .b-hero {
@@ -575,7 +598,7 @@ a {
 }
 
 /* ==========================================================================
-   12) PROFILE / INVENTORY BITS (unchanged)
+   12) PROFILE / INVENTORY
    ========================================================================== */
 .pill {
     display: inline-flex;
@@ -598,7 +621,6 @@ a {
     gap: .5rem;
 }
 
-/* inventory grid */
 .inv-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -612,8 +634,8 @@ a {
     align-items: center;
     gap: 10px;
     padding: 12px 14px;
-    border: 1px solid var(--border);
-    background: var(--surface);
+    border: 1px solid var(--line);
+    background: var(--card);
     border-radius: 14px;
 }
 
@@ -630,59 +652,4 @@ a {
 .inv-qty {
     font-weight: 600;
     opacity: .85;
-}
-
-/* GAME – inventory bar & reset */
-.b-game {
-    margin-top: 28px;
-}
-
-.inventory-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: 12px 0 18px;
-}
-
-.inventory-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-}
-
-.inventory-label {
-    opacity: .8;
-}
-
-.inventory-item {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    padding: 4px 8px;
-    line-height: 1.2;
-}
-
-.reset-btn {
-    border: 1px solid var(--line);
-    background: transparent;
-    color: var(--muted);
-    border-radius: var(--radius-sm);
-    padding: 6px 12px;
-    cursor: pointer;
-    transition: background .12s ease, transform .12s ease;
-}
-
-.reset-btn:hover {
-    background: var(--line);
-    color: var(--text);
-    transform: translateY(-1px);
-}
-
-/* choices already exist, add a bit more spacing */
-.choices {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 10px;
 }
