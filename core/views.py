@@ -8,10 +8,14 @@ from django.shortcuts import render, redirect
 import json
 from django.contrib.auth.decorators import login_required
 from django.db.models import F
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_POST
 from utils.github import get_recent_public_repos_cached
+from django.http import JsonResponse, Http404
+from django.views.decorators.http import require_GET
+from django.db.models import Prefetch
+
+from .models import Scene, Choice, ChoiceGain
 
 log = logging.getLogger("app")
 
@@ -135,3 +139,36 @@ def game_inventory(request):
         for r in rows
     ]
     return JsonResponse({"items": items})
+
+
+def _scene_key(scene):
+    return scene.key
+
+
+@require_GET
+def game_scenes_json(request):
+    start_scene = Scene.objects.filter(is_start=True).first() or Scene.objects.order_by("key").first()
+    if not start_scene:
+        raise Http404("No scenes found")
+
+    scenes_qs = Scene.objects.prefetch_related("choices__gains", "choices__next_scene").order_by("key")
+
+    payload = {"start": _scene_key(start_scene), "scenes": {}}
+
+    for sc in scenes_qs:
+        node = {
+            "id": sc.key,
+            "title": sc.title or "",
+            "text": sc.text or "",
+            "choices": [],
+        }
+        for ch in sc.choices.all():  # related_name="choices"
+            gains = [{"item": g.item.slug, "qty": g.qty} for g in ch.gains.all()]
+            node["choices"].append({
+                "text": ch.label,
+                "target": ch.next_scene.key if ch.next_scene else None,
+                "gains": gains,
+            })
+        payload["scenes"][sc.key] = node
+
+    return JsonResponse(payload)

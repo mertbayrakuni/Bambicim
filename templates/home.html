@@ -38,21 +38,14 @@
     </section>
 
     <section id="game" class="b-container b-game">
-        <h2>Bambi game</h2>
-        <div id="game-root"
-             class="game-card"
-             data-scenes-url="{% static 'game/scenes.json' %}">
-            <div class="scene">
-                <h3 id="g-title"></h3>
-                <p id="g-text"></p>
-                <div id="g-choices" class="choices"></div>
-            </div>
-        </div>
+        <h2>Bambi Game</h2>
+        <div id="game-root" class="my-4"></div>
     </section>
 
 
-    <section id="work" class="b-container b-mt-xl">
+    <section id="work" class="my-10">
         <h2>Selected work</h2>
+        {% include "project_grid.html" %}
 
         <div class="work-grid">
             {% for r in repos %}
@@ -74,6 +67,7 @@
                 <p>No public repos yet — check back soon.</p>
             {% endfor %}
         </div>
+
     </section>
 
     <section id="contact" class="b-container b-contact">

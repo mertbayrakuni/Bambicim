@@ -1,0 +1,29 @@
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {% for p in featured_projects %}
+        <article class="rounded-2xl shadow p-4 bg-white/90">
+            <div class="flex items-start gap-3">
+                {% if p.cover_image %}
+                    <img src="{{ p.cover_image.url }}" alt="{{ p.title }}" class="w-20 h-20 object-cover rounded-xl">
+                {% endif %}
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold">{{ p.title }}</h3>
+                    {% if p.short_desc %}
+                        <p class="text-sm opacity-80 mt-1">{{ p.short_desc }}</p>
+                    {% endif %}
+                    {% if p.tags_list %}
+                        <div class="flex flex-wrap gap-1 mt-2">
+                            {% for tag in p.tags_list %}
+                                <span class="text-xs border rounded-lg px-2 py-0.5">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if p.url %}
+                        <a href="{{ p.url }}" class="inline-block mt-3 underline">View project →</a>
+                    {% endif %}
+                </div>
+            </div>
+        </article>
+    {% empty %}
+        <div class="opacity-70">No featured projects yet. Add some in Admin → Portfolio → Projects.</div>
+    {% endfor %}
+</div>

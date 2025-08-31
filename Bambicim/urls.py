@@ -1,8 +1,15 @@
 from django.contrib import admin
+from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
+from django.views.generic import TemplateView
+
 from core.views import home, contact
-from core import views as core_views
+from core import views as core_views, views
 from accounts import views as accounts_views
+
+from portfolio.sitemaps import ProjectSitemap
+
+sitemaps = {"projects": ProjectSitemap}
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -10,8 +17,16 @@ urlpatterns = [
     path("contact/", contact, name="contact"),
     path("accounts/", include("django.contrib.auth.urls")),
     path("accounts/signup/", accounts_views.signup, name="signup"),
+
+    # game
     path("game/choice", core_views.game_choice, name="game_choice"),
     path("game/inventory", core_views.game_inventory, name="game_inventory"),
+    path("game/scenes", views.game_scenes_json, name="game_scenes_json"),
+
+    # profile
     path("accounts/me/", accounts_views.profile_page, name="profile"),
-    path("", include("django.contrib.auth.urls")),
+
+    # robots + sitemap
+    path("robots.txt", TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
+    path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
 ]
