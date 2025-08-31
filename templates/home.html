@@ -42,10 +42,11 @@
         <div id="game-root" class="my-4"></div>
     </section>
 
-
     <section id="work" class="my-10">
         <h2>Selected work</h2>
-        {% include "project_grid.html" %}
+        {% if featured_projects %}
+            {% include "project_grid.html" %}
+        {% endif %}
 
         <div class="work-grid">
             {% for r in repos %}
@@ -69,6 +70,7 @@
         </div>
 
     </section>
+
 
     <section id="contact" class="b-container b-contact">
         <h2>Tell us about your idea</h2>
