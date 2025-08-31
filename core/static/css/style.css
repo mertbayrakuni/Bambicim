@@ -92,7 +92,9 @@ a {
 /* Pills & buttons */
 .cta,
 .ghost,
-.b-nav .pill {
+.b-nav .pill,
+.choice-btn,
+.pill {
     padding: 12px 18px;
     border-radius: 14px;
     font-weight: 700;
@@ -128,6 +130,8 @@ a {
     align-items: center;
     padding: 22px 24px 0;
     gap: 16px;
+    position: relative;
+    z-index: 10;
 }
 
 .brand {
@@ -269,7 +273,7 @@ a {
     overflow: hidden;
 }
 
-.grid {
+.hero-grid {
     position: absolute;
     inset: 0;
     background: linear-gradient(var(--line) 1px, transparent 1px) 0 0/24px 24px,
@@ -495,6 +499,7 @@ a {
     cursor: not-allowed;
 }
 
+
 /* ==========================================================================
    9) AUTH PAGES (login / signup)
    ========================================================================== */
@@ -562,7 +567,9 @@ a {
     }
 }
 
-/* game pills on profile */
+/* ==========================================================================
+   12) PROFILE BITS & INVENTORY
+   ========================================================================== */
 .pill {
     display: inline-flex;
     gap: .5rem;
@@ -582,18 +589,6 @@ a {
     display: flex;
     flex-wrap: wrap;
     gap: .5rem;
-}
-
-.choice-btn {
-    border-radius: 12px;
-    padding: .6rem .9rem;
-    background: rgba(255, 255, 255, .06);
-    border: 1px solid rgba(255, 255, 255, .08);
-}
-
-.choice-btn[disabled] {
-    opacity: .5;
-    cursor: not-allowed;
 }
 
 /* Inventory grid */
