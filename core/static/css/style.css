@@ -1,21 +1,7 @@
 /* ==========================================================================
-   1) THEME TOKENS (default = dark) + VARIANTS
+   1) THEME TOKENS (default = pink) + VARIANTS
    ========================================================================== */
 :root,
-body[data-theme="dark"] {
-    --bg: #0b0b10;
-    --text: #f6f0fa;
-    --muted: #cdbfdb;
-    --card: #14131a;
-    --line: #2b2635;
-    --accent: #a86cff;
-    --accent2: #6ad8ff;
-
-    --radius: 16px;
-    --radius-sm: 12px;
-    --container: 1100px;
-}
-
 body[data-theme="pink"] {
     --bg: #120812;
     --text: #ffeef9;
@@ -24,6 +10,20 @@ body[data-theme="pink"] {
     --line: #3d1a40;
     --accent: #ff6ad5;
     --accent2: #ffb7f5;
+
+    --radius: 16px;
+    --radius-sm: 12px;
+    --container: 1100px;
+}
+
+body[data-theme="dark"] {
+    --bg: #0b0b10;
+    --text: #f6f0fa;
+    --muted: #cdbfdb;
+    --card: #14131a;
+    --line: #2b2635;
+    --accent: #a86cff;
+    --accent2: #6ad8ff;
 }
 
 body[data-theme="hot"] {
@@ -63,6 +63,7 @@ body {
     background: var(--bg);
     color: var(--text);
     line-height: 1.55;
+    transition: background-color .4s ease, color .4s ease;
 }
 
 a {
@@ -92,19 +93,16 @@ a {
 /* Pills & buttons */
 .cta,
 .ghost,
-.b-nav .pill,
-.choice-btn,
-.pill {
+.pill,
+.choice-btn {
     padding: 12px 18px;
     border-radius: 14px;
     font-weight: 700;
 }
 
-.cta,
-.b-nav .pill {
-    /* gradient pill */
+.cta {
     background: linear-gradient(90deg, var(--accent), var(--accent2));
-    color: #120812; /* readable on the light gradient */
+    color: #120812;
 }
 
 .ghost {
@@ -112,6 +110,21 @@ a {
     border: 1px solid var(--line);
     color: var(--text);
 }
+
+.pill {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    color: #120812;
+}
+
+/* Specific styling for the 'ghost' pills you wanted to be pink */
+.b-nav .pill.ghost,
+.b-nav form button.ghost {
+    background: linear-gradient(90deg, var(--accent), var(--accent2)) !important;
+    border: none !important;
+    color: var(--bg) !important;
+    font-weight: 800;
+}
+
 
 /* Small pill sizing for nav actions */
 .b-nav .pill.small,
@@ -122,11 +135,11 @@ a {
 }
 
 /* ==========================================================================
-   3) TOP NAV (centered main nav, auth flushed right)
+   3) TOP NAV
    ========================================================================== */
 .b-nav {
     display: grid;
-    grid-template-columns: 1fr auto 1fr; /* brand | main-nav | auth */
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     padding: 22px 24px 0;
     gap: 16px;
@@ -171,13 +184,6 @@ a {
     border-radius: 12px;
     font-weight: 700;
     cursor: pointer;
-}
-
-/* apply ghost style to the logout button reliably */
-.b-nav form button.ghost.small {
-    background: transparent !important;
-    border: 1px solid var(--line);
-    color: var(--text);
 }
 
 /* Theme dots */
@@ -246,6 +252,7 @@ a {
     display: flex;
     gap: 12px;
     margin-top: 18px;
+    align-items: center; /* This fixes the alignment issue */
 }
 
 .badges {
@@ -480,7 +487,7 @@ a {
 
 .choice-btn {
     border: 1px solid var(--line);
-    background: #0f0f16;
+    background: var(--card);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 10px 14px;
@@ -491,7 +498,7 @@ a {
 
 .choice-btn:hover {
     transform: translateY(-1px);
-    background: #13131b;
+    background: var(--line);
 }
 
 .choice-btn[disabled] {
@@ -583,12 +590,6 @@ a {
 .pill .emoji {
     width: 1.2rem;
     text-align: center;
-}
-
-.choice-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
 }
 
 /* Inventory grid */
