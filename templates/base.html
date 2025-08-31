@@ -13,12 +13,12 @@
           content="{% block og_description %}Bambi’s playful portfolio, code, and tiny adventures.{% endblock %}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.build_absolute_uri|default:'' }}">
-    <meta property="og:image" content="{% static 'images/og-default.jpg' %}">
+    <meta property="og:image" content="{% static 'images/png/og-default.png' %}">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{% block tw_title %}Bambicim{% endblock %}">
     <meta name="twitter:description"
           content="{% block tw_desc %}Bambi’s playful portfolio, code, and tiny adventures.{% endblock %}">
-    <meta name="twitter:image" content="{% static 'images/og-default.jpg' %}">
+    <meta name="twitter:image" content="{% static 'images/png/og-default.png' %}">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
