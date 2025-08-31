@@ -170,6 +170,13 @@ def game_scenes_json(request):
             })
         payload["scenes"][sc.key] = node
 
+    total_choices = sum(len(n.get("choices", [])) for n in payload["scenes"].values())
+    empty_labels = sum(1 for n in payload["scenes"].values()
+                       for c in n.get("choices", [])
+                       if not (c.get("text") or c.get("label")))
+    if total_choices == 0 or empty_labels >= total_choices:
+        return HttpResponse(status=404)  # force JSON fallback
+
     return JsonResponse(payload)
 
 

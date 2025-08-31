@@ -21,20 +21,17 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = env("DJANGO_SECRET_KEY", "dev-secret-unsafe")
 DEBUG = env("DJANGO_DEBUG", True, cast=bool)
 
-ALLOWED_HOSTS = [
-    "bambicim.com",
-    "www.bambicim.com",
-    ".onrender.com",
-    "127.0.0.1",
-    "localhost",
-    "fd1e995b6dcb.ngrok-free.app",
-]
+ALLOWED_HOSTS = env(
+    "ALLOWED_HOSTS",
+    default="bambicim.com,www.bambicim.com,.onrender.com,127.0.0.1,localhost,.ngrok-free.app",
+    cast=list,
+)
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://bambicim.com",
-    "https://www.bambicim.com",
-    "https://*.onrender.com",
-]
+CSRF_TRUSTED_ORIGINS = env(
+    "CSRF_TRUSTED_ORIGINS",
+    default="https://bambicim.com,https://www.bambicim.com,https://*.onrender.com,https://*.ngrok-free.app",
+    cast=list,
+)
 
 # -----------------------------------------------------------------------------
 # Security (strict in PROD, relaxed in DEV)

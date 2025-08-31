@@ -631,3 +631,58 @@ a {
     font-weight: 600;
     opacity: .85;
 }
+
+/* GAME – inventory bar & reset */
+.b-game {
+    margin-top: 28px;
+}
+
+.inventory-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 12px 0 18px;
+}
+
+.inventory-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.inventory-label {
+    opacity: .8;
+}
+
+.inventory-item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    line-height: 1.2;
+}
+
+.reset-btn {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background .12s ease, transform .12s ease;
+}
+
+.reset-btn:hover {
+    background: var(--line);
+    color: var(--text);
+    transform: translateY(-1px);
+}
+
+/* choices already exist, add a bit more spacing */
+.choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 10px;
+}
