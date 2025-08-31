@@ -5,13 +5,11 @@
 (function () {
     const SAVE_KEY = "bambiGameSave";
 
-    // A simple query selector helper.
-    function qs(sel, root) {
-        return (root || document).querySelector(sel);
-    }
+    // Helper to query for an element.
+    const qs = (sel, root) => (root || document).querySelector(sel);
 
-    // A helper function to create new DOM elements with attributes and children.
-    function el(tag, attrs, ...kids) {
+    // Helper to create a new element.
+    const el = (tag, attrs, ...kids) => {
         const n = document.createElement(tag);
         if (attrs) {
             for (const [k, v] of Object.entries(attrs)) {
@@ -22,95 +20,75 @@
         }
         kids.forEach(c => n.append(c));
         return n;
-    }
+    };
 
-    // Handles saving and loading game state to localStorage.
+    // Game state management using localStorage.
     const Store = {
-        load() {
+        load: () => {
             try {
                 return JSON.parse(localStorage.getItem(SAVE_KEY)) || {};
             } catch {
                 return {};
             }
         },
-        save(o) {
-            localStorage.setItem(SAVE_KEY, JSON.stringify(o || {}));
-        },
-        clear() {
-            localStorage.removeItem(SAVE_KEY);
-        }
+        save: (o) => localStorage.setItem(SAVE_KEY, JSON.stringify(o || {})),
+        clear: () => localStorage.removeItem(SAVE_KEY)
     };
 
-    // Renders the player's inventory.
-    function renderInventory(inv) {
-        // Use your custom CSS classes for styling
+    // Renders the player's inventory list.
+    const renderInventory = (inv) => {
         const wrap = el("div", {class: "inventory-wrap"});
         const keys = Object.keys(inv || {}).filter(k => (inv[k] || 0) > 0);
+
         if (!keys.length) {
             wrap.append(el("span", {class: "inventory-empty"}, "Inventory: (empty)"));
             return wrap;
         }
+
         wrap.append(el("span", {class: "inventory-label"}, "Inventory:"));
-        keys.forEach(k => wrap.append(
-            el("span", {class: "inventory-item"}, `${k} × ${inv[k]}`)
-        ));
+        keys.forEach(k => {
+            wrap.append(el("span", {class: "inventory-item"}, `${k} × ${inv[k]}`));
+        });
         return wrap;
-    }
+    };
 
-    // The main function that initializes and mounts the game.
-    function mount(container) {
+    // Initializes and mounts the game.
+    const mount = (container) => {
         container.innerHTML = "";
-        container.classList.add("bambi-game");
+        container.classList.add("b-game");
 
-        // Create the game's header
-        const header = el("div", {class: "game-header"},
-            el("div", {class: "game-title"}, "Bambi Game"),
-            el("div", {},
-                el("button", {
-                    class: "reset-btn",
-                    onclick: () => {
-                        if (confirm("Reset progress?")) {
-                            Store.clear();
-                            start();
-                        }
-                    }
-                }, "Reset")
-            )
-        );
-
-        // Create the main game card and its sections.
         const invBar = el("div", {class: "game-inv-bar"});
         const card = el("div", {class: "game-card"});
-        const title = el("h3", {class: "scene-title"});
-        const body = el("div", {class: "scene-text"});
+        const sceneTitle = el("h3");
+        const sceneText = el("p");
         const choicesWrap = el("div", {class: "choices"});
 
-        card.append(title, body, choicesWrap);
-        container.append(header, invBar, card);
+        card.append(sceneTitle, sceneText, choicesWrap);
+        container.append(invBar, card);
 
         let scenes = {};
         let state = {current: null, inv: {}};
 
         // Adds or removes items from the inventory.
-        function applyGains(gains) {
+        const applyGains = (gains) => {
             (gains || []).forEach(g => {
                 const key = (g.item || "").trim();
                 if (!key) return;
                 const qty = Number(g.qty || 1);
                 state.inv[key] = (state.inv[key] || 0) + qty;
             });
-        }
+        };
 
-        // Renders a specific scene based on its key.
-        function render(key) {
+        // Renders a specific scene.
+        const render = (key) => {
             const s = scenes[key];
             if (!s) return;
 
             state.current = key;
             Store.save(state);
 
-            title.textContent = s.title || "";
-            body.textContent = s.text || "";
+            sceneTitle.textContent = s.title || "";
+            sceneText.textContent = s.text || "";
 
             invBar.innerHTML = "";
             invBar.append(renderInventory(state.inv));
@@ -119,26 +97,28 @@
             (s.choices || []).forEach(ch => {
                 const btn = el(
                     "button",
-                    {class: "choice-btn"},
+                    {
+                        class: "choice-btn",
+                        onclick: () => {
+                            applyGains(ch.gains || []);
+                            const tgt = ch.target;
+                            if (tgt && scenes[tgt]) {
+                                render(tgt);
+                            } else {
+                                invBar.innerHTML = "";
+                                invBar.append(renderInventory(state.inv));
+                                Store.save(state);
+                            }
+                        }
+                    },
                     ch.text || "Continue"
                 );
-                btn.addEventListener("click", () => {
-                    applyGains(ch.gains || []);
-                    const tgt = ch.target;
-                    if (tgt && scenes[tgt]) {
-                        render(tgt);
-                    } else {
-                        invBar.innerHTML = "";
-                        invBar.append(renderInventory(state.inv));
-                        Store.save(state);
-                    }
-                });
                 choicesWrap.append(btn);
             });
-        }
+        };
 
         // Initializes the game, loading state and scenes.
-        function start() {
+        const start = () => {
             state = Store.load();
             fetch("/game/scenes")
                 .then(r => r.json())
@@ -152,11 +132,12 @@
                     console.error("Failed to load scenes:", err);
                     container.innerHTML = "Bambi couldn’t load the adventure.";
                 });
-        }
+        };
 
         start();
-    }
+    };
 
+    // Mount the game when the page loads.
     document.addEventListener("DOMContentLoaded", () => {
         const root = qs("#game-root");
         if (root) mount(root);

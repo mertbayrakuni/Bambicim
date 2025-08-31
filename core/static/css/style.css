@@ -575,7 +575,7 @@ a {
 }
 
 /* ==========================================================================
-   12) PROFILE BITS & INVENTORY
+   12) PROFILE / INVENTORY BITS (unchanged)
    ========================================================================== */
 .pill {
     display: inline-flex;
@@ -592,7 +592,13 @@ a {
     text-align: center;
 }
 
-/* Inventory grid */
+.choice-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+/* inventory grid */
 .inv-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
