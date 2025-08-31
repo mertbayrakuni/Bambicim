@@ -182,3 +182,10 @@ def game_scenes_json(request):
 
 def healthz(_request):
     return HttpResponse("ok", content_type="text/plain")
+
+
+@require_POST
+@login_required
+def inventory_clear(request):
+    Inventory.objects.filter(user=request.user).delete()
+    return redirect("profile_page")

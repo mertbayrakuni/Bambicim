@@ -1,23 +1,38 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="b-container">
-  <h2 class="b-title">Your spoils & inventory</h2>
+    <section class="b-container">
 
-  {% if inv %}
-    <ul class="inv-grid">
-      {% for row in inv %}
-        <li class="inv-card">
-          <span class="inv-emoji">{{ row.item.emoji }}</span>
-          <div class="inv-main">
-            <strong>{{ row.item.name }}</strong>
-            <small class="muted">{{ row.item.slug }}</small>
-          </div>
-          <span class="inv-qty">× {{ row.qty }}</span>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="muted">No items yet. Go play the Bambi Game and try some looks ✨</p>
-  {% endif %}
-</section>
+        <!-- title + action -->
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <h2 class="b-title">Your spoils & inventory</h2>
+
+            {# show the clear button only when there are items #}
+            {% if inv %}
+                <form method="post" action="{% url 'inventory_clear' %}">
+                    {% csrf_token %}
+                    <button class="ghost small" type="submit"
+                            onclick="return confirm('Clear your inventory? This can’t be undone.')">
+                        Clear inventory
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+
+        {% if inv %}
+            <ul class="inv-grid">
+                {% for row in inv %}
+                    <li class="inv-card">
+                        <span class="inv-emoji">{{ row.item.emoji }}</span>
+                        <div class="inv-main">
+                            <strong>{{ row.item.name }}</strong>
+                            <small class="muted">{{ row.item.slug }}</small>
+                        </div>
+                        <span class="inv-qty">× {{ row.qty }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="muted">No items yet. Go play the Bambi Game and try some looks ✨</p>
+        {% endif %}
+    </section>
 {% endblock %}

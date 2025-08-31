@@ -653,3 +653,10 @@ a {
     font-weight: 600;
     opacity: .85;
 }
+
+.inv-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}

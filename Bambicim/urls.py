@@ -3,7 +3,7 @@ from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
 from django.views.generic import TemplateView
 
-from core.views import home, contact, healthz
+from core.views import home, contact, healthz, inventory_clear
 from core import views as core_views, views
 from accounts import views as accounts_views
 
@@ -26,6 +26,7 @@ urlpatterns = [
 
     # profile
     path("accounts/me/", accounts_views.profile_page, name="profile"),
+    path("accounts/clear/", inventory_clear, name="inventory_clear"),
 
     # robots + sitemap
     path("robots.txt", TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
