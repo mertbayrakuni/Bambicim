@@ -1,23 +1,22 @@
-# venv / pycharm
+# venv / IDE
 .venv/
 .idea/
 .vscode/
 
-# python
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 
-# django
+# Django
 db.sqlite3
-media/
+/media/
+/staticfiles/   # <-- STATIC_ROOT, output-only
 
-# logs & local run artifacts
-logs/
-*.log
+# Logs & local run artifacts
+/logs/
+/*.log
 
-# env / secrets
+# Env / secrets
 .env
 .env.*
-
-/staticfiles/
