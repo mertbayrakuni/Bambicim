@@ -19,3 +19,5 @@ logs/
 # env / secrets
 .env
 .env.*
+
+/staticfiles/
