@@ -10,7 +10,6 @@ __pycache__/
 
 # django
 db.sqlite3
-staticfiles/
 media/
 
 # logs & local run artifacts

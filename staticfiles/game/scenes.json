@@ -1,0 +1,193 @@
+{
+  "meta": {
+    "title": "Bambi — Soft evening",
+    "version": 1
+  },
+  "start": "intro",
+  "scenes": {
+    "intro": {
+      "title": "Evening glow",
+      "text": "Room lights low, a pink tab open, quiet excitement in your chest.",
+      "choices": [
+        {
+          "label": "Peek in the mirror",
+          "next": "mirror"
+        },
+        {
+          "label": "Put water on for tea",
+          "next": "kitchen"
+        }
+      ]
+    },
+    "mirror": {
+      "title": "Glimmer",
+      "text": "You tuck hair behind your ear and smile.",
+      "choices": [
+        {
+          "label": "Dab a little lip gloss",
+          "next": "closet",
+          "gain": [
+            "lip-gloss"
+          ]
+        },
+        {
+          "label": "Tie a ribbon",
+          "next": "closet",
+          "gain": [
+            "hair-ribbon"
+          ]
+        },
+        {
+          "label": "Back",
+          "next": "intro"
+        }
+      ]
+    },
+    "kitchen": {
+      "title": "Tiny ritual",
+      "text": "Kettle sings. Steam curls up like a thought.",
+      "choices": [
+        {
+          "label": "Herbal tea, gentle",
+          "next": "closet",
+          "gain": [
+            "herbal-tea"
+          ]
+        },
+        {
+          "label": "Light a small candle",
+          "next": "closet",
+          "gain": [
+            "soft-candle"
+          ]
+        },
+        {
+          "label": "Back",
+          "next": "intro"
+        }
+      ]
+    },
+    "closet": {
+      "title": "Little outfit",
+      "text": "You reach for something that feels like you.",
+      "choices": [
+        {
+          "label": "Soft tee",
+          "next": "street",
+          "gain": [
+            "soft-tee"
+          ]
+        },
+        {
+          "label": "Pink skirt",
+          "next": "street",
+          "gain": [
+            "pink-skirt"
+          ]
+        }
+      ]
+    },
+    "street": {
+      "title": "Night air",
+      "text": "Cool breeze, city glow. Your steps feel lighter.",
+      "choices": [
+        {
+          "label": "Pop by a boutique",
+          "next": "boutique"
+        },
+        {
+          "label": "Stroll through the park",
+          "next": "park"
+        }
+      ]
+    },
+    "boutique": {
+      "title": "Pretty things",
+      "text": "A tray of sweet accessories sparkles softly.",
+      "choices": [
+        {
+          "label": "Butterfly pin",
+          "next": "alley",
+          "gain": [
+            "butterfly-pin"
+          ]
+        },
+        {
+          "label": "Hair bow",
+          "next": "alley",
+          "gain": [
+            "hair-bow"
+          ]
+        }
+      ]
+    },
+    "alley": {
+      "title": "Shortcut",
+      "text": "You spot a pop-up with boots. Tempting.",
+      "choices": [
+        {
+          "label": "Try combat boots",
+          "next": "cafe",
+          "gain": [
+            "combat-boots"
+          ]
+        },
+        {
+          "label": "Skip boots",
+          "next": "cafe"
+        }
+      ]
+    },
+    "park": {
+      "title": "Quiet path",
+      "text": "Leaves whisper. You breathe easier.",
+      "choices": [
+        {
+          "label": "Take a sweet selfie",
+          "next": "cafe",
+          "gain": [
+            "spark-photo"
+          ]
+        },
+        {
+          "label": "Just enjoy the walk",
+          "next": "cafe"
+        }
+      ]
+    },
+    "cafe": {
+      "title": "Late-night café",
+      "text": "Warm mug, soft playlist, a tiny bit braver than yesterday.",
+      "choices": [
+        {
+          "label": "Write a note in pink",
+          "next": "home",
+          "gain": [
+            "pink-notebook"
+          ]
+        },
+        {
+          "label": "Send a kind DM",
+          "next": "home",
+          "gain": [
+            "warm-emoji"
+          ]
+        }
+      ]
+    },
+    "home": {
+      "title": "Save point",
+      "text": "Back home. Your finds rest on the desk like fireflies in a jar.",
+      "choices": [
+        {
+          "label": "Open profile",
+          "href": "/accounts/me/"
+        },
+        {
+          "label": "Play again",
+          "next": "intro"
+        }
+      ]
+    }
+  }
+}
