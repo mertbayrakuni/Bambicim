@@ -1,11 +1,13 @@
-/* core/static/game/engine.js (patched, backward‑compatible)
-   - Accepts scenes using either:
-     * {choices:[{text:"..", target:"..", gains:[{item,qty}]}]}
-     * {choices:[{label:"..", next:"..", gain:["slug" or {slug,qty}]}]}
-   - Gracefully falls back between /game/scenes and static file /static/game/scenes.json
-   - Works without login; choice POST is best‑effort only.
+/* core/static/game/engine.js  —  Bambi Game (compat + CSRF + logs)
+   - Works with both shapes:
+       { text, target, gains: [{item, qty}] }
+       { label, next,  gain:  ["slug" | {slug, qty}] }
+   - Loads /game/scenes first; falls back to /static/game/scenes.json
+   - Best-effort POST to /game/choice with CSRF; failure doesn’t block UI
 */
+
 (function () {
+    // ---------- tiny helpers ----------
     const SAVE_KEY = "bambiGameSave";
 
     const qs = (sel, root) => (root || document).querySelector(sel);
@@ -31,6 +33,14 @@
         clear: () => localStorage.removeItem(SAVE_KEY),
     };
 
+    function getCookie(name) {
+        const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return m ? decodeURIComponent(m.pop()) : "";
+    }
+
+    const log = (...args) => console.debug("[BambiGame]", ...args);
+
+    // ---------- rendering ----------
     const renderInventory = (inv) => {
         const wrap = el("div", {class: "inventory-wrap"});
         const keys = Object.keys(inv || {}).filter(k => (inv[k] || 0) > 0);
@@ -39,35 +49,31 @@
             return wrap;
         }
         wrap.append(el("span", {class: "inventory-label"}, "Inventory:"));
-        keys.forEach(k => {
-            wrap.append(el("span", {class: "inventory-item"}, `${k} × ${inv[k]}`));
-        });
+        keys.forEach(k => wrap.append(el("span", {class: "inventory-item"}, `${k} × ${inv[k]}`)));
         return wrap;
     };
 
+    // ---------- data normalization ----------
     function normalizeChoice(ch) {
-        // Support both shapes
         const label = (ch.text ?? ch.label ?? "Continue").toString();
         const target = (ch.target ?? ch.next ?? null);
-        const gains = (ch.gains ?? ch.gain ?? []);
-        // Normalize gains into [{item, qty}] with non‑empty item
-        const normGains = [];
-        if (Array.isArray(gains)) {
-            for (const g of gains) {
-                if (typeof g === "string") normGains.push({item: g, qty: 1});
+        const gainsRaw = (ch.gains ?? ch.gain ?? []);
+        const gains = [];
+
+        if (Array.isArray(gainsRaw)) {
+            for (const g of gainsRaw) {
+                if (typeof g === "string") gains.push({item: g, qty: 1});
                 else if (g && typeof g === "object") {
                     const item = (g.item ?? g.slug ?? "").toString().trim();
                     const qty = Number(g.qty ?? 1) || 1;
-                    if (item) normGains.push({item, qty});
+                    if (item) gains.push({item, qty});
                 }
             }
         }
-        return {label, target, gains: normGains};
+        return {label, target, gains};
     }
 
     function normalizeScenes(payload) {
-        // Accept {start, scenes:{id:{title,text,choices}}}
-        // and keep as is (only normalize choices)
         const start = payload.start;
         const scenes = {};
         for (const [key, node] of Object.entries(payload.scenes || {})) {
@@ -79,6 +85,7 @@
         return {start, scenes};
     }
 
+    // ---------- app ----------
     const mount = (container) => {
         container.classList.add("b-game");
 
@@ -87,7 +94,7 @@
         resetBtn.addEventListener("click", () => {
             Store.clear();
             state = {current: null, inv: {}};
-            render(state.current || startKey);
+            render(startKey);
         });
         invBar.append(resetBtn);
 
@@ -112,14 +119,41 @@
             }
         };
 
+        const safePostChoice = (sceneKey, choice) => {
+            try {
+                const csrftoken = getCookie("csrftoken");
+                fetch("/game/choice", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrftoken,
+                        "X-Requested-With": "fetch"
+                    },
+                    credentials: "same-origin",
+                    body: JSON.stringify({
+                        scene: sceneKey,
+                        label: choice.label,
+                        gain: choice.gains
+                    })
+                }).catch(() => {
+                });
+            } catch { /* ignore */
+            }
+        };
+
         const render = (key) => {
             const s = scenes[key];
-            if (!s) return;
+            if (!s) {
+                log("Missing scene:", key);
+                return;
+            }
             state.current = key;
             Store.save(state);
 
+            log("Render scene:", key, s);
             sceneTitle.textContent = s.title || "";
             sceneText.textContent = s.text || "";
+
             // inventory
             invBar.querySelector(".inventory-wrap")?.remove();
             invBar.append(renderInventory(state.inv));
@@ -129,53 +163,60 @@
             for (const ch of s.choices || []) {
                 const btn = el("button", {class: "choice-btn"}, ch.label || "Continue");
                 btn.addEventListener("click", () => {
+                    log("Click choice:", ch);
                     applyGains(ch.gains);
-                    // best‑effort log (ignore failures / login redirects)
-                    try {
-                        fetch("/game/choice", {
-                            method: "POST",
-                            headers: {"Content-Type": "application/json", "X-Requested-With": "fetch"},
-                            body: JSON.stringify({scene: key, label: ch.label, gain: ch.gains}),
-                            credentials: "same-origin",
-                        }).catch(() => {
-                        });
-                    } catch {
-                    }
+                    safePostChoice(key, ch);
                     const next = ch.target;
-                    if (next && scenes[next]) render(next);
+                    if (!next) return;
+                    if (!scenes[next]) {
+                        log("Broken target:", next, "from", key);
+                        return;
+                    }
+                    render(next);
                 });
                 choicesWrap.append(btn);
             }
         };
 
         async function loadScenes() {
-            // Try server JSON first, then static file
-            const tryUrls = ["/game/scenes", "/static/game/scenes.json", "/game/scenes.json", "{STATIC_URL}game/scenes.json"];
-            let payload = null;
+            const tryUrls = ["/game/scenes", "/static/game/scenes.json", "/game/scenes.json"];
             for (const url of tryUrls) {
                 try {
                     const r = await fetch(url, {credentials: "same-origin"});
                     if (!r.ok) continue;
                     const data = await r.json();
-                    payload = data;
-                    break;
-                } catch {
+                    log("Loaded scenes from:", url);
+                    return normalizeScenes(data);
+                } catch { /* continue */
                 }
             }
-            if (!payload) throw new Error("no-scenes");
-            return normalizeScenes(payload);
+            throw new Error("No scenes JSON available");
         }
 
         async function start() {
-            // restore saved inventory / position
             const saved = Store.load();
-            if (saved && typeof saved === "object") state = {current: saved.current || null, inv: saved.inv || {}};
+            if (saved && typeof saved === "object")
+                state = {current: saved.current || null, inv: saved.inv || {}};
 
             try {
                 const loaded = await loadScenes();
                 scenes = loaded.scenes;
                 startKey = loaded.start;
-                render(state.current || startKey);
+
+                // defensive: if saved.current vanished, fallback to start
+                const initial = (state.current && scenes[state.current]) ? state.current : startKey;
+
+                // debug: detect broken links at boot
+                const broken = [];
+                for (const [k, s] of Object.entries(scenes)) {
+                    (s.choices || []).forEach(c => {
+                        const t = c.target;
+                        if (t && !scenes[t]) broken.push({from: k, to: t, choice: c.label});
+                    });
+                }
+                if (broken.length) log("Broken links detected:", broken);
+
+                render(initial);
             } catch (err) {
                 console.error("Failed to load scenes:", err);
                 container.innerHTML = "Bambi couldn’t load the adventure.";
