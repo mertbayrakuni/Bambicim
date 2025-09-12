@@ -122,10 +122,11 @@
             }
         };
 
-        const safePostChoice = (sceneKey, choice) => {
+// replace your existing safePostChoice with this version
+        const safePostChoice = async (sceneKey, choice) => {
             try {
                 const csrftoken = getCookie("csrftoken");
-                fetch("/game/choice", {
+                const r = await fetch("/game/choice", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -138,9 +139,17 @@
                         label: choice.label,
                         gain: choice.gains, // [{item, qty}]
                     }),
-                }).catch(() => {
                 });
-            } catch { /* ignore */
+
+                // ⬇️ ACHIEVEMENT HOOK — fire toast/HUD updates with server response
+                if (r.ok) {
+                    const resp = await r.json().catch(() => null);
+                    if (resp && window.ttwAchv && typeof window.ttwAchv.onChoiceResponse === "function") {
+                        window.ttwAchv.onChoiceResponse(resp);
+                    }
+                }
+            } catch {
+                /* ignore network errors; UI already advanced */
             }
         };
 

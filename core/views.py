@@ -14,13 +14,14 @@ from django.core.validators import validate_email
 from django.db.models import F
 from django.http import JsonResponse, Http404, HttpResponse
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.html import strip_tags
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
 from utils.github import get_recent_public_repos_cached
-from .models import Scene, Item, Inventory, ChoiceLog
+from .models import Scene, Item, Inventory, ChoiceLog, Achievement, UserAchievement
 
 log = logging.getLogger("app")
 
@@ -150,6 +151,25 @@ ITEM_DEFS = {
     "combat-boots": {"name": "Combat Boots", "emoji": "🥾"},
 }
 
+BASE_ACHIEVEMENTS = [
+    # slug, name, emoji, rule_type, rule_param, threshold, description
+    ("first-pick", "First Pick", "🪄", Achievement.RULE_COLLECT_COUNT, "", 1, "Collect your first item."),
+    ("pink-queen", "Pink Queen", "💗", Achievement.RULE_COLLECT_ITEM, "pink-skirt", 1, "Own the pink skirt."),
+    ("accessorized", "Accessorized", "🎀", Achievement.RULE_COLLECT_COUNT, "", 3, "Collect 3 total items."),
+    ("hoarder", "Hoarder", "🧺", Achievement.RULE_COLLECT_COUNT, "", 5, "Collect 5 total items."),
+]
+
+
+def _ensure_achievements_seeded():
+    for slug, name, emoji, rtype, rparam, thr, desc in BASE_ACHIEVEMENTS:
+        Achievement.objects.get_or_create(
+            slug=slug,
+            defaults=dict(
+                name=name, emoji=emoji, rule_type=rtype,
+                rule_param=rparam, threshold=thr, description=desc, is_active=True
+            ),
+        )
+
 
 def _ensure_item(slug: str) -> Item:
     """Create item on first sight with nice defaults."""
@@ -208,7 +228,10 @@ def game_choice(request):
     if scene_id or label:
         ChoiceLog.objects.create(user=request.user, scene=scene_id, choice=label)
 
-    return JsonResponse({"ok": True, "gained": gained})
+    # check for achievements after inventory/choice updates
+    new_ach = _award_achievements(request.user)
+
+    return JsonResponse({"ok": True, "gained": gained, "achievements": new_ach})
 
 
 @require_GET
@@ -288,3 +311,58 @@ def healthz(_request):
 def inventory_clear(request):
     Inventory.objects.filter(user=request.user).delete()
     return redirect("profile_page")
+
+
+@require_GET
+@login_required
+def game_achievements(request):
+    _ensure_achievements_seeded()
+    rows = (
+        UserAchievement.objects.filter(user=request.user)
+        .select_related("achievement")
+        .order_by("achieved_at")
+    )
+    data = [
+        {
+            "slug": r.achievement.slug,
+            "name": r.achievement.name,
+            "emoji": r.achievement.emoji,
+            "at": r.achieved_at.isoformat(),
+        }
+        for r in rows
+    ]
+    return JsonResponse({"items": data})
+
+
+def _award_achievements(user):
+    """
+    Evaluate simple rules against current inventory and recent scene.
+    Returns list of newly unlocked achievements (dicts).
+    """
+    _ensure_achievements_seeded()
+
+    # totals
+    rows = Inventory.objects.filter(user=user).select_related("item")
+    total_qty = sum(r.qty for r in rows)
+    have = {r.item.slug for r in rows}
+
+    unlocked = []
+
+    for a in Achievement.objects.filter(is_active=True):
+        # already owned?
+        if UserAchievement.objects.filter(user=user, achievement=a).exists():
+            continue
+
+        ok = False
+        if a.rule_type == Achievement.RULE_COLLECT_ITEM:
+            ok = a.rule_param in have
+        elif a.rule_type == Achievement.RULE_COLLECT_COUNT:
+            ok = total_qty >= max(1, a.threshold)
+        elif a.rule_type == Achievement.RULE_REACH_SCENE:
+            ok = ChoiceLog.objects.filter(user=user, scene=a.rule_param).exists()
+
+        if ok:
+            UserAchievement.objects.create(user=user, achievement=a, achieved_at=timezone.now())
+            unlocked.append({"slug": a.slug, "name": a.name, "emoji": a.emoji})
+
+    return unlocked

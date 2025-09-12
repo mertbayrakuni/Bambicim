@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.db.models import Sum
 
+from .models import Achievement, UserAchievement
 from .models import (
     Item, Inventory, GameSession, ChoiceLog,
     Scene, Choice, ChoiceGain,
@@ -148,3 +149,17 @@ class ChoiceAdmin(admin.ModelAdmin):
     autocomplete_fields = ("scene", "next_scene")
     inlines = [ChoiceGainInline]
     ordering = ("scene__key", "order", "code")
+
+
+@admin.register(Achievement)
+class AchievementAdmin(admin.ModelAdmin):
+    list_display = ("slug", "name", "rule_type", "rule_param", "threshold", "is_active")
+    list_filter = ("rule_type", "is_active")
+    search_fields = ("slug", "name", "rule_param")
+
+
+@admin.register(UserAchievement)
+class UserAchievementAdmin(admin.ModelAdmin):
+    list_display = ("user", "achievement", "achieved_at")
+    list_filter = ("achievement",)
+    search_fields = ("user__username", "achievement__slug")

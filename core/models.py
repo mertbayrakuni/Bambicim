@@ -1,6 +1,8 @@
 # core/models.py
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import models
+from django.utils import timezone
 
 User = settings.AUTH_USER_MODEL
 
@@ -89,3 +91,36 @@ class ChoiceGain(models.Model):
 
     def __str__(self):
         return f"{self.choice} +{self.qty} {self.item.slug}"
+
+
+class Achievement(models.Model):
+    RULE_COLLECT_ITEM = "collect_item"      # rule_param = item slug
+    RULE_COLLECT_COUNT = "collect_count"    # threshold = total qty
+    RULE_REACH_SCENE = "reach_scene"        # rule_param = scene key
+
+    RULES = [
+        (RULE_COLLECT_ITEM, "Collect specific item"),
+        (RULE_COLLECT_COUNT, "Collect total items (qty)"),
+        (RULE_REACH_SCENE, "Reach scene"),
+    ]
+
+    slug = models.SlugField(primary_key=True, max_length=64)
+    name = models.CharField(max_length=100)
+    emoji = models.CharField(max_length=8, default="✨")
+    description = models.TextField(blank=True)
+    rule_type = models.CharField(max_length=32, choices=RULES)
+    rule_param = models.CharField(max_length=128, blank=True, default="")
+    threshold = models.IntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.emoji} {self.name}"
+
+
+class UserAchievement(models.Model):
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    achievement = models.ForeignKey(Achievement, on_delete=models.CASCADE)
+    achieved_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = [("user", "achievement")]

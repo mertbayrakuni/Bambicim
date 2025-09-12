@@ -3,10 +3,9 @@ from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
 from django.views.generic import TemplateView
 
-from core.views import home, contact, healthz, inventory_clear
-from core import views as core_views, views
 from accounts import views as accounts_views
-
+from core import views as core_views, views
+from core.views import home, contact, healthz, inventory_clear
 from portfolio.sitemaps import ProjectSitemap
 
 sitemaps = {"projects": ProjectSitemap}
@@ -23,6 +22,7 @@ urlpatterns = [
     path("game/choice", core_views.game_choice, name="game_choice"),
     path("game/inventory", core_views.game_inventory, name="game_inventory"),
     path("game/scenes", views.game_scenes_json, name="game_scenes_json"),
+    path("game/achievements", core_views.game_achievements, name="game_achievements"),
 
     # profile
     path("accounts/me/", accounts_views.profile_page, name="profile"),
