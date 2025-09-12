@@ -1,14 +1,20 @@
+# core/views.py
 import json
 import logging
 import os
+import re
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.mail import send_mail, BadHeaderError
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.core.mail import EmailMessage  # use EmailMessage for Reply-To
+from django.core.validators import validate_email
 from django.db.models import F
 from django.http import JsonResponse, Http404, HttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect, render
+from django.utils.html import strip_tags
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
@@ -25,32 +31,105 @@ def home(request):
     try:
         repos = get_recent_public_repos_cached(user, token)
     except Exception:
+        log.exception("GitHub repos fetch failed")
         repos = []  # fail silently; page still loads
     return render(request, "home.html", {"repos": repos})
 
 
+CONTACT_RATE_LIMIT_SECONDS = 60  # adjust as you like
+MAX_MESSAGE_LEN = 5000
+MAX_URLS_IN_MESSAGE = 5  # crude spam limiter
+
+
+def _client_ip(request):
+    # Simple best-effort
+    xff = request.META.get("HTTP_X_FORWARDED_FOR")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "0.0.0.0")
+
+
+@csrf_protect
 def contact(request):
-    if request.method == "POST":
-        name = request.POST.get("name", "").strip()
-        email = request.POST.get("email", "").strip()
-        msg = request.POST.get("message", "").strip()
-        if not (name and email and msg):
-            messages.error(request, "Please fill in all fields.")
-            return redirect("home")
-        subject = f"New lead — Bambicim: {name}"
-        body = f"From: {name} <{email}>\n\n{msg}"
-        try:
-            send_mail(
-                subject,
-                body,
-                settings.DEFAULT_FROM_EMAIL,
-                ["mert@bambicim.com", "ipek@bambicim.com"],
-                fail_silently=False,
-            )
-            messages.success(request, "Thanks! We’ll get back to you shortly.")
-        except BadHeaderError:
-            messages.error(request, "Invalid header found.")
+    # Render the same page as home on GET so the form shows correctly
+    if request.method != "POST":
+        return render(request, "home.html")
+
+    # Honeypot: bots often fill hidden fields
+    if request.POST.get("website", "").strip():
+        # Silently pretend success (don’t help bots learn)
+        messages.success(request, "Thanks! I’ll get back to you.")
         return redirect("home")
+
+    name = (request.POST.get("name") or "").strip()
+    email = (request.POST.get("email") or "").strip()
+    raw_message = request.POST.get("message") or ""
+    message = strip_tags(raw_message).strip()
+
+    # Rate-limit by IP (check only; set after successful send)
+    ip = _client_ip(request)
+    rk = f"contact:rate:{ip}"
+    if cache.get(rk):
+        messages.error(
+            request,
+            "Please wait a bit before sending another message.",
+            extra_tags="contact_error",
+        )
+        return redirect("home")
+
+    # Basic validation
+    errors = []
+    if not name:
+        errors.append("Name is required.")
+    if not email:
+        errors.append("Email is required.")
+    else:
+        try:
+            validate_email(email)
+        except ValidationError:
+            errors.append("Please enter a valid email address.")
+
+    if not message:
+        errors.append("Message is required.")
+    elif len(message) > MAX_MESSAGE_LEN:
+        errors.append("Message is too long.")
+    else:
+        # crude URL limiter to reduce spam payloads
+        url_count = len(re.findall(r"https?://", message, flags=re.I))
+        if url_count > MAX_URLS_IN_MESSAGE:
+            errors.append("Too many links in the message.")
+
+    if errors:
+        for e in errors:
+            messages.error(request, e, extra_tags="contact_error")
+        return redirect("home")
+
+    # Compose & send (use env-backed CONTACT_RECIPIENT and Reply-To)
+    subject = f"[Bambicim] Contact from {name}"
+    body = f"From: {name} <{email}>\nIP: {ip}\n\n{message}"
+    try:
+        email_msg = EmailMessage(
+            subject=subject,
+            body=body,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            to=[settings.CONTACT_RECIPIENT],
+            reply_to=[email] if email else None,
+        )
+        email_msg.send(fail_silently=False)
+
+        # set limiter only after a successful send
+        cache.set(rk, 1, timeout=CONTACT_RATE_LIMIT_SECONDS)
+
+        messages.success(request, "Thanks! I’ll get back to you.")
+    except Exception:
+        # Log the failure but keep the error generic
+        log.exception("Contact email send failed")
+        messages.error(
+            request,
+            "Sorry—couldn’t send your message right now.",
+            extra_tags="contact_error",
+        )
+
     return redirect("home")
 
 
@@ -66,7 +145,9 @@ ITEM_DEFS = {
 
 def _ensure_item(slug: str) -> Item:
     """Create item on first sight with nice defaults."""
-    defaults = ITEM_DEFS.get(slug, {"name": slug.replace("-", " ").title(), "emoji": "✨"})
+    defaults = ITEM_DEFS.get(
+        slug, {"name": slug.replace("-", " ").title(), "emoji": "✨"}
+    )
     obj, _ = Item.objects.get_or_create(slug=slug, defaults=defaults)
     return obj
 
@@ -112,7 +193,9 @@ def game_choice(request):
         Inventory.objects.filter(pk=inv.pk).update(qty=F("qty") + qty)
         inv.refresh_from_db()
 
-        gained.append({"slug": item.slug, "name": item.name, "qty": qty, "emoji": item.emoji})
+        gained.append(
+            {"slug": item.slug, "name": item.name, "qty": qty, "emoji": item.emoji}
+        )
 
     if scene_id or label:
         ChoiceLog.objects.create(user=request.user, scene=scene_id, choice=label)
@@ -148,22 +231,30 @@ def game_scenes_json(request):
     if not start_scene:
         raise Http404("No scenes found")
 
-    scenes_qs = Scene.objects.prefetch_related(
-        "choices__gains", "choices__next_scene"
-    ).order_by("key")
+    scenes_qs = (
+        Scene.objects.prefetch_related("choices__gains", "choices__next_scene")
+        .order_by("key")
+    )
 
     payload = {"start": _scene_key(start_scene), "scenes": {}}
 
     for sc in scenes_qs:
-        node = {"id": sc.key, "title": sc.title or "", "text": sc.text or "", "choices": []}
+        node = {
+            "id": sc.key,
+            "title": sc.title or "",
+            "text": sc.text or "",
+            "choices": [],
+        }
         for ch in sc.choices.all():  # related_name="choices"
             gains = [{"item": g.item.slug, "qty": g.qty} for g in ch.gains.all()]
-            node["choices"].append({
-                "text": ch.label,
-                "target": ch.next_scene.key if ch.next_scene else None,
-                "href": ch.href or None,
-                "gains": gains,
-            })
+            node["choices"].append(
+                {
+                    "text": ch.label,
+                    "target": ch.next_scene.key if ch.next_scene else None,
+                    "href": ch.href or None,
+                    "gains": gains,
+                }
+            )
         payload["scenes"][sc.key] = node
 
     # defensive: if DB looks broken, force static JSON fallback

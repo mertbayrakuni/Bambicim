@@ -76,19 +76,62 @@
 
     <section id="contact" class="b-container b-contact">
         <h2>Tell us about your idea</h2>
-        <form method="post" action="{% url 'contact' %}" class="contact">
+        <form method="post" action="{% url 'contact' %}" class="contact" novalidate aria-describedby="contact-errors">
             {% csrf_token %}
-            <div class="row">
-                <input name="name" placeholder="Your name" required>
-                <input type="email" name="email" placeholder="Email" required>
-            </div>
-            <textarea name="message" rows="5" placeholder="What are we building?" required></textarea>
-            <button class="cta">Send message</button>
+
+            {# Error summary (render only when errors exist) #}
             {% if messages %}
-                <div class="flash">
-                    {% for m in messages %}<p>{{ m }}</p>{% endfor %}
+                <div id="contact-errors" role="alert" aria-live="polite">
+                    {% for m in messages %}
+                        {% if "contact_error" in m.tags %}
+                            <p class="text-red-600">{{ m }}</p>
+                        {% endif %}
+                    {% endfor %}
                 </div>
             {% endif %}
+
+            <div class="field">
+                <label for="c-name" class="sr-only">Name</label>
+                <input id="c-name"
+                       name="name"
+                       type="text"
+                       inputmode="text"
+                       autocomplete="name"
+                       placeholder="Your name"
+                       required
+                       aria-required="true">
+            </div>
+
+            <div class="field">
+                <label for="c-email" class="sr-only">Email</label>
+                <input id="c-email"
+                       name="email"
+                       type="email"
+                       inputmode="email"
+                       autocomplete="email"
+                       placeholder="Email"
+                       required
+                       aria-required="true">
+            </div>
+
+            <div class="field">
+                <label for="c-message" class="sr-only">Message</label>
+                <textarea id="c-message"
+                          name="message"
+                          rows="5"
+                          placeholder="Message"
+                          maxlength="5000"
+                          required
+                          aria-required="true"></textarea>
+            </div>
+
+            {# HONEYPOT: real users never fill this; bots often do #}
+            <div class="hp-field" aria-hidden="true">
+                <label for="c-website">Website</label>
+                <input id="c-website" type="text" name="website" tabindex="-1" autocomplete="off">
+            </div>
+
+            <button type="submit">Send</button>
         </form>
         <p class="muted alt">Prefer email? <a href="mailto:ipek@bambicim.com">ipek@bambicim.com</a></p>
     </section>
