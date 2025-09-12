@@ -786,3 +786,62 @@ a {
 .achv-toast-row .emo {
     font-size: 1.1rem;
 }
+
+/* ===== Mobile polish (phones) ===== */
+@media (max-width: 640px) {
+    .b-container {
+        padding: 16px;
+    }
+
+    .b-nav {
+        grid-template-columns: 1fr;
+        row-gap: 10px;
+        padding: 16px 16px 0;
+    }
+
+    .b-nav nav.main-nav {
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+    }
+
+    .b-nav .pill,
+    .b-nav form button {
+        padding: 6px 10px;
+        border-radius: 10px;
+        font-size: .9rem;
+        font-weight: 800;
+    }
+
+    .theme-toggle {
+        display: none;
+    }
+
+    /* hide theme dots on tiny screens */
+    .b-hero {
+        padding: 36px 16px 12px;
+        gap: 18px;
+    }
+
+    .hero-copy h1 {
+        font-size: clamp(28px, 7vw, 40px);
+        line-height: 1.08;
+    }
+
+    .hero-copy p {
+        font-size: 0.95rem;
+    }
+
+    .hero-art {
+        height: 220px;
+    }
+
+    .b-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .work-grid {
+        grid-template-columns: 1fr;
+    }
+
+}

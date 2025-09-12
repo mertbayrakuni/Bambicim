@@ -310,7 +310,8 @@ def healthz(_request):
 @login_required
 def inventory_clear(request):
     Inventory.objects.filter(user=request.user).delete()
-    return redirect("profile_page")
+    messages.success(request, "Inventory cleared.")
+    return redirect("profile")
 
 
 @require_GET
