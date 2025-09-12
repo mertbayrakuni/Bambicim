@@ -9,11 +9,12 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.core.mail import EmailMessage  # use EmailMessage for Reply-To
+from django.core.mail import EmailMessage
 from django.core.validators import validate_email
 from django.db.models import F
 from django.http import JsonResponse, Http404, HttpResponse
 from django.shortcuts import redirect, render
+from django.utils.dateparse import parse_datetime
 from django.utils.html import strip_tags
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
@@ -28,11 +29,18 @@ def home(request):
     user = os.environ.get("GITHUB_USERNAME", "mertbayrakuni")
     token = os.environ.get("GITHUB_TOKEN")  # optional
     repos = []
+
     try:
         repos = get_recent_public_repos_cached(user, token)
     except Exception:
         log.exception("GitHub repos fetch failed")
         repos = []  # fail silently; page still loads
+
+    # parse pushed_at -> pushed_dt (aware datetime) for “timesince”
+    for r in repos:
+        dt = parse_datetime((r.get("pushed_at") or "").strip()) if isinstance(r, dict) else None
+        r["pushed_dt"] = dt
+
     return render(request, "home.html", {"repos": repos})
 
 

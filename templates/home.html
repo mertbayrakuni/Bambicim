@@ -1,26 +1,31 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}Bambicim — Innovative Software Solutions{% endblock %}
+
 {% block content %}
 
     <section class="b-hero b-container">
         <div class="hero-copy">
             <h1><span class="grad">Princess-pink</span> software, built fast & beautifully</h1>
             <p>Notes, builds, and shiny experiments from Bambi. Switch the vibe ↑</p>
+
             <div class="cta-row">
                 <a class="ghost" href="#work">See work</a>
                 <a class="ghost" href="#contact">Let’s talk</a>
             </div>
+
             <div class="badges">
                 <span>💅 lots of pink</span><span>🧠 AI-powered</span><span>🔒 security-first</span>
             </div>
         </div>
-        <div class="hero-art">
+
+        <div class="hero-art" aria-hidden="true">
             <div class="hero-grid"></div>
             <div class="orb orb-1"></div>
             <div class="orb orb-2"></div>
         </div>
     </section>
+
 
     <section class="b-container b-cards">
         <article>
@@ -46,6 +51,7 @@
 
     <section id="work" class="b-container my-10">
         <h2>Selected work</h2>
+
         {% if featured_projects %}
             {% include "project_grid.html" %}
         {% endif %}
@@ -55,27 +61,36 @@
                 <a class="card work-card" href="{{ r.html_url }}" target="_blank" rel="noopener">
                     <img class="work-thumb" src="{{ r.og_image }}" alt="{{ r.name }} preview">
                     <div class="card-body">
-                        <div class="work-title">{{ r.name }}</div>
-                        <p class="work-desc">
-                            {{ r.description|default:"No description yet." }}
-                        </p>
+                        <h3 class="work-title">{{ r.name }}</h3>
+
                         <div class="work-meta">
-                            {% if r.language %}<span>{{ r.language }}</span>{% endif %}
-                            <span>★ {{ r.stars }}</span>
-                            {% if r.pushed_dt %}<span>updated {{ r.pushed_dt|timesince }} ago</span>{% endif %}
+                            {% if r.language %}
+                                <span>{{ r.language }}</span>
+                                <span class="repo-dot" aria-hidden="true"></span>
+                            {% endif %}
+
+                            {% if r.stars %}<span>★ {{ r.stars }}</span>{% endif %}
+
+                            {% if r.pushed_dt %}
+                                <span>updated {{ r.pushed_dt|timesince }} ago</span>
+                            {% elif r.pushed_at %}
+                                <span>updated {{ r.pushed_at }}</span>
+                            {% endif %}
                         </div>
+
+                        <p class="work-desc">{{ r.description|default:"No description yet." }}</p>
                     </div>
                 </a>
             {% empty %}
                 <p>No public repos yet — check back soon.</p>
             {% endfor %}
         </div>
-
     </section>
 
 
     <section id="contact" class="b-container b-contact">
         <h2>Tell us about your idea</h2>
+
         <form method="post" action="{% url 'contact' %}" class="contact" novalidate aria-describedby="contact-errors">
             {% csrf_token %}
 
@@ -84,7 +99,7 @@
                 <div id="contact-errors" role="alert" aria-live="polite">
                     {% for m in messages %}
                         {% if "contact_error" in m.tags %}
-                            <p class="text-red-600">{{ m }}</p>
+                            <p class="form-error">{{ m }}</p>
                         {% endif %}
                     {% endfor %}
                 </div>
@@ -92,37 +107,20 @@
 
             <div class="field">
                 <label for="c-name" class="sr-only">Name</label>
-                <input id="c-name"
-                       name="name"
-                       type="text"
-                       inputmode="text"
-                       autocomplete="name"
-                       placeholder="Your name"
-                       required
-                       aria-required="true">
+                <input id="c-name" name="name" type="text" inputmode="text" autocomplete="name"
+                       placeholder="Your name" required aria-required="true">
             </div>
 
             <div class="field">
                 <label for="c-email" class="sr-only">Email</label>
-                <input id="c-email"
-                       name="email"
-                       type="email"
-                       inputmode="email"
-                       autocomplete="email"
-                       placeholder="Email"
-                       required
-                       aria-required="true">
+                <input id="c-email" name="email" type="email" inputmode="email" autocomplete="email"
+                       placeholder="Email" required aria-required="true">
             </div>
 
             <div class="field">
                 <label for="c-message" class="sr-only">Message</label>
-                <textarea id="c-message"
-                          name="message"
-                          rows="5"
-                          placeholder="Message"
-                          maxlength="5000"
-                          required
-                          aria-required="true"></textarea>
+                <textarea id="c-message" name="message" rows="5" placeholder="Message"
+                          maxlength="5000" required aria-required="true"></textarea>
             </div>
 
             {# HONEYPOT: real users never fill this; bots often do #}
@@ -133,7 +131,11 @@
 
             <button type="submit">Send</button>
         </form>
-        <p class="muted alt">Prefer email? <a href="mailto:ipek@bambicim.com">ipek@bambicim.com</a></p>
+
+        <p class="muted alt">
+            Prefer email?
+            <a href="mailto:ipek@bambicim.com">ipek@bambicim.com</a>
+        </p>
     </section>
 
 {% endblock %}
