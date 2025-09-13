@@ -1,4 +1,4 @@
-# core/art.py — zero-API, procedural pixel-art generator (v2)
+# core/art.py — zero-API, procedural pixel-art generator (v3)
 import hashlib
 import io
 import math
@@ -54,31 +54,55 @@ PALETTES: List[Palette] = [
     Palette("dawn", (20, 6, 28), (255, 210, 150), (255, 160, 120), (255, 100, 180)),
 ]
 
-# keyword → tag groups for layout/props
+# Keyword → tags. (Note: we intentionally REMOVED any automatic 'jar' mapping.)
 KEYWORD_TAGS: Dict[str, Iterable[str]] = {
     # interiors
     "room": ["interior", "bed", "window", "lamp"],
-    "home": ["interior", "bed", "window"],  # no jar by default anymore
+    "home": ["interior", "bed", "window"],
     "mirror": ["interior", "desk", "mirror"],
+    "closet": ["interior", "desk", "lamp"],
     "kitchen": ["interior", "counter", "kettle", "window"],
-    "save": ["interior", "desk"],  # keep minimal
+    "desk": ["interior", "desk"],
+
     # exteriors
     "street": ["exterior", "buildings", "sign"],
     "alley": ["exterior", "buildings"],
     "park": ["exterior", "trees"],
-    "forest": ["exterior", "trees", "fireflies"],
-    "cafe": ["exterior", "buildings", "sign"],
+    "forest": ["exterior", "trees"],
     "boutique": ["exterior", "buildings", "sign"],
-    # singles
+    "cafe": ["interior", "counter", "lamp", "window"],  # make it feel indoors & cozy
+
+    # mood / particles
     "night": ["fireflies"],
-    "desk": ["interior", "desk"],
-    "jar": ["jar", "fireflies"],
-    "tree": ["trees"],
-    "fireflies": ["fireflies"],
+    "stars": ["fireflies"],
+    "city": ["buildings"],
+
+    # items / vibes (don’t add jar here)
+    "boots": ["street", "sign"],
+    "outfit": ["interior", "mirror"],
+    "accessor": ["interior", "desk", "lamp"],  # accessories / accessorized
+    "pretty": ["interior", "desk", "lamp"],
 }
 
-# Only these scene KEYS may render a jar (and optionally fireflies)
-ALLOWED_JAR_KEYS = {"home", "save", "rest", "home-rest"}
+# Strong defaults per known scene key — gives each a distinct look
+SCENE_TAG_OVERRIDES: Dict[str, Iterable[str]] = {
+    # your 10 keys (from admin screenshot): street, park, mirror, kitchen, intro, home, closet, cafe, boutique, alley
+    "intro": ["interior", "bed", "window", "lamp"],
+    "home": ["interior", "bed", "window", "lamp"],
+    "mirror": ["interior", "desk", "mirror"],
+    "kitchen": ["interior", "counter", "kettle", "window"],
+    "street": ["exterior", "buildings", "sign"],
+    "park": ["exterior", "trees"],
+    "alley": ["exterior", "buildings"],
+    "cafe": ["interior", "counter", "lamp", "window"],
+    "boutique": ["exterior", "buildings", "sign"],
+    "closet": ["interior", "desk", "lamp"],
+
+    # finale/save scene(s) — only these explicitly ask for a jar
+    "save": ["interior", "desk", "jar", "fireflies"],
+    "rest": ["interior", "desk", "jar", "fireflies"],
+    "home-rest": ["interior", "desk", "jar", "fireflies"],
+}
 
 
 def _hash_seed(s: str) -> int:
@@ -107,86 +131,89 @@ class PixelComposer:
         # background gradient & shimmer
         self._bands(base, pal, rng)
 
-        # layout: foreground/platform area (raise it a bit to reduce empty top)
+        # layout: foreground/platform area (raise it to reduce empty top)
         if "interior" in tags:
             self._draw_floor(draw, pal, h_frac=0.36)
         else:
             self._draw_ground(draw, pal, h_frac=0.30)
 
         # ---- motifs (interior/exterior) ----
-        # interior sets: choose a couple based on tags
         if "interior" in tags:
-            if "bed" in tags:      self._draw_bed(draw, pal, rng)
-            if "window" in tags:   self._draw_window(draw, pal, rng)
-            if "desk" in tags:     self._draw_desk(draw, pal, rng)
-            if "mirror" in tags:   self._draw_mirror(draw, pal, rng)
-            if "counter" in tags:  self._draw_counter(draw, pal, rng)
-            if "kettle" in tags:   self._draw_kettle(draw, pal, rng)
-            if "lamp" in tags:     self._draw_lamp(draw, pal, rng)
+            if "bed" in tags: self._draw_bed(draw, pal, rng)
+            if "window" in tags: self._draw_window(draw, pal, rng)
+            if "desk" in tags: self._draw_desk(draw, pal, rng)
+            if "mirror" in tags: self._draw_mirror(draw, pal, rng)
+            if "counter" in tags: self._draw_counter(draw, pal, rng)
+            if "kettle" in tags: self._draw_kettle(draw, pal, rng)
+            if "lamp" in tags: self._draw_lamp(draw, pal, rng)
         else:
-            if "trees" in tags:       self._draw_trees(draw, pal, rng)
-            if "buildings" in tags:   self._draw_buildings(draw, pal, rng)
-            if "sign" in tags:        self._draw_sign(draw, pal, rng)
+            if "trees" in tags: self._draw_trees(draw, pal, rng)
+            if "buildings" in tags: self._draw_buildings(draw, pal, rng)
+            if "sign" in tags: self._draw_sign(draw, pal, rng)
 
         # optional props
-        if "jar" in tags:          self._draw_jar(draw, pal, rng)
-        if "fireflies" in tags:    self._draw_fireflies(draw, pal, rng)
+        if "jar" in tags: self._draw_jar(draw, pal, rng)
+        if "fireflies" in tags: self._draw_fireflies(draw, pal, rng)
 
-        # pixel-ify: shrink & expand with NEAREST to lock in chunky pixels
+        # pixel-ify & post FX
         base = self._pixelize(base, factor=5)
-
-        # subtle scanlines / vignette for retro feel
         base = self._scanlines(base, strength=22)
         base = self._vignette(base, amount=0.16)
-
-        # final limited palette quantize (keeps filesize tiny)
         base = base.convert("P", palette=Image.ADAPTIVE, colors=24).convert("RGB")
         return base
 
     # ---------- parsing & palette ----------
     def _tags_from_prompt(self, prompt: str) -> List[str]:
         """
-        Extract tags from the combined "key :: title :: text" prompt.
-        - Uses KEYWORD_TAGS matches across key/title/text.
-        - Enforces 'jar' (and usually 'fireflies') only on whitelisted keys.
-        - Falls back to a tame interior scene if nothing matched.
+        Smarter tag extraction:
+        - Start from SCENE_TAG_OVERRIDES using the real *key* (left of ::).
+        - Add keyword scores from TITLE+TEXT only (to avoid key leaking theme).
+        - 'jar' appears only if the literal word 'jar' or 'fireflies' is in title/text,
+          OR the override specified it.
+        - Always end with a concrete interior/exterior + at least one major motif.
         """
         p = prompt.lower()
-        # try to grab the scene key from 'key :: title :: text'
-        key_part = p.split("::", 1)[0].strip() if "::" in p else p.strip()
+        key, title, text = "", "", ""
+        parts = [s.strip() for s in p.split("::", 2)]
+        if len(parts) == 1:
+            key = parts[0]
+        elif len(parts) == 2:
+            key, title = parts
+        else:
+            key, title, text = parts
 
-        tags = set()
+        tags = set(SCENE_TAG_OVERRIDES.get(key, []))
+
+        hay = f"{title} {text}"  # only content (not key) influences generic keywords
         for kw, tg in KEYWORD_TAGS.items():
-            if kw in p:
-                for t in tg:
-                    tags.add(t)
+            if kw in hay:
+                tags.update(tg)
 
-        # If nothing matched at all, try a gentle default (no jar)
-        if not tags:
-            # If the key itself looks like one of our known keywords, seed from it
-            if key_part in KEYWORD_TAGS:
-                tags.update(KEYWORD_TAGS[key_part])
-            else:
-                tags.update(["interior", "bed", "window"])  # safe default
-
-        # Hard rules:
-        # 1) JAR only on allowed keys
-        if "jar" in tags and key_part not in ALLOWED_JAR_KEYS:
+        # jar/fireflies gating: only literal words or explicit overrides
+        wants_jar = (" jar " in f" {hay} ") or ("fireflies" in hay) or ("jar" in tags)
+        if not wants_jar:
             tags.discard("jar")
-
-        # 2) FIRELIES are allowed outdoors or jar-scenes; otherwise drop
-        if "fireflies" in tags:
-            is_outdoor = any(t in tags for t in ("trees", "buildings", "exterior"))
-            if (key_part not in ALLOWED_JAR_KEYS) and not is_outdoor:
+            # keep fireflies only for outdoors mood if content suggests night/stars
+            if "exterior" not in tags:
                 tags.discard("fireflies")
 
-        # 3) Ensure we always have an interior/exterior base tag
+        # Ensure a base realm
         if not any(t in tags for t in ("interior", "exterior")):
-            # guess from context; default to interior
+            # guess from content; default to interior
             if any(t in tags for t in ("trees", "buildings", "sign")):
                 tags.add("exterior")
             else:
                 tags.add("interior")
+
+        # Ensure at least one major motif so it never looks empty
+        if "interior" in tags and not any(t in tags for t in ("bed", "desk", "counter", "window", "mirror", "lamp")):
+            tags.update(["desk", "lamp"])
+        if "exterior" in tags and not any(t in tags for t in ("trees", "buildings", "sign")):
+            # vary a bit by key
+            if key in ("park", "forest"):
+                tags.add("trees")
+            else:
+                tags.add("buildings")
 
         return list(tags)
 
@@ -235,7 +262,6 @@ class PixelComposer:
         draw.rectangle([x0, y - bed_h, x0 + bed_w, y],
                        fill=(pal.accent[0] // 2, pal.accent[1] // 2, pal.accent[2] // 2),
                        outline=pal.accent)
-        # legs
         for lx in (x0 + 16, x0 + bed_w - 24):
             draw.rectangle([lx, y, lx + 10, y + 26], fill=(pal.accent[0] // 3, pal.accent[1] // 3, pal.accent[2] // 3))
 
@@ -245,7 +271,6 @@ class PixelComposer:
         x0 = int(w * 0.58)
         y0 = int(h * 0.26)
         draw.rectangle([x0, y0, x0 + ww, y0 + wh], outline=pal.accent2)
-        # simple “stars”
         for _ in range(16):
             x = rng.randint(x0 + 6, x0 + ww - 6)
             y = rng.randint(y0 + 6, y0 + wh - 6)
