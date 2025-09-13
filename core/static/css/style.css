@@ -864,3 +864,12 @@ a {
         max-width: 100%;
     }
 }
+
+.b-game .game-card.scene {
+    max-width: 980px;
+    margin-inline: auto;
+}
+
+.scene-pixel {
+    margin: 0 auto 12px;
+}

@@ -1,4 +1,4 @@
-# core/art.py — zero-API, procedural pixel-art generator
+# core/art.py — zero-API, procedural pixel-art generator (v2)
 import hashlib
 import io
 import math
@@ -54,16 +54,24 @@ PALETTES: List[Palette] = [
     Palette("dawn", (20, 6, 28), (255, 210, 150), (255, 160, 120), (255, 100, 180)),
 ]
 
-# keyword → tag groups for quick “layout decisions”
+# keyword → tag groups for layout/props
 KEYWORD_TAGS: Dict[str, Iterable[str]] = {
-    "home": ["interior", "desk", "jar"],
-    "save": ["interior", "desk", "jar"],
+    # interiors
+    "room": ["interior", "bed", "window", "lamp"],
+    "home": ["interior", "bed", "window"],  # no jar by default anymore
+    "mirror": ["interior", "desk", "mirror"],
+    "kitchen": ["interior", "counter", "kettle", "window"],
+    "save": ["interior", "desk"],  # keep minimal
+    # exteriors
+    "street": ["exterior", "buildings", "sign"],
+    "alley": ["exterior", "buildings"],
+    "park": ["exterior", "trees"],
     "forest": ["exterior", "trees", "fireflies"],
-    "shop": ["interior", "shelves"],
-    "street": ["exterior", "buildings"],
+    "cafe": ["exterior", "buildings", "sign"],
+    "boutique": ["exterior", "buildings", "sign"],
+    # singles
     "night": ["fireflies"],
-    "back": ["interior"],  # "Back home..."
-    "desk": ["desk", "jar"],
+    "desk": ["interior", "desk"],
     "jar": ["jar", "fireflies"],
     "tree": ["trees"],
     "fireflies": ["fireflies"],
@@ -93,35 +101,40 @@ class PixelComposer:
         base = Image.new("RGB", (self.size, self.size), pal.bg)
         draw = ImageDraw.Draw(base)
 
-        # big background gradient bands for attitude
+        # background gradient & shimmer
         self._bands(base, pal, rng)
 
-        # layout: foreground/platform area
+        # layout: foreground/platform area (raise it a bit to reduce empty top)
         if "interior" in tags:
-            self._draw_floor(draw, pal, h_frac=0.3)
+            self._draw_floor(draw, pal, h_frac=0.36)
         else:
-            self._draw_ground(draw, pal, h_frac=0.25)
+            self._draw_ground(draw, pal, h_frac=0.30)
 
-        # motifs (pick based on tags)
-        if "desk" in tags:
-            self._draw_desk(draw, pal, rng)
-        if "shelves" in tags:
-            self._draw_shelves(draw, pal, rng)
-        if "trees" in tags:
-            self._draw_trees(draw, pal, rng)
-        if "buildings" in tags:
-            self._draw_buildings(draw, pal, rng)
-        if "jar" in tags:
-            self._draw_jar(draw, pal, rng)
-        if "fireflies" in tags:
-            self._draw_fireflies(draw, pal, rng)
+        # ---- motifs (interior/exterior) ----
+        # interior sets: choose a couple based on tags
+        if "interior" in tags:
+            if "bed" in tags:      self._draw_bed(draw, pal, rng)
+            if "window" in tags:   self._draw_window(draw, pal, rng)
+            if "desk" in tags:     self._draw_desk(draw, pal, rng)
+            if "mirror" in tags:   self._draw_mirror(draw, pal, rng)
+            if "counter" in tags:  self._draw_counter(draw, pal, rng)
+            if "kettle" in tags:   self._draw_kettle(draw, pal, rng)
+            if "lamp" in tags:     self._draw_lamp(draw, pal, rng)
+        else:
+            if "trees" in tags:       self._draw_trees(draw, pal, rng)
+            if "buildings" in tags:   self._draw_buildings(draw, pal, rng)
+            if "sign" in tags:        self._draw_sign(draw, pal, rng)
+
+        # optional props
+        if "jar" in tags:          self._draw_jar(draw, pal, rng)
+        if "fireflies" in tags:    self._draw_fireflies(draw, pal, rng)
 
         # pixel-ify: shrink & expand with NEAREST to lock in chunky pixels
-        base = self._pixelize(base, factor=6)
+        base = self._pixelize(base, factor=5)
 
         # subtle scanlines / vignette for retro feel
-        base = self._scanlines(base, strength=28)
-        base = self._vignette(base, amount=0.18)
+        base = self._scanlines(base, strength=22)
+        base = self._vignette(base, amount=0.16)
 
         # final limited palette quantize (keeps filesize tiny)
         base = base.convert("P", palette=Image.ADAPTIVE, colors=24).convert("RGB")
@@ -135,15 +148,15 @@ class PixelComposer:
             if k in p:
                 for t in tg:
                     tags.add(t)
-        # default fallback
+        # default fallback (no jar by default)
         if not tags:
-            tags.update(["interior", "desk", "jar"])
+            tags.update(["interior", "bed", "window"])
         return list(tags)
 
     def _pick_palette(self, tags: List[str], rng: random.Random) -> Palette:
         if "forest" in tags or "trees" in tags:
             return PALETTES[1]
-        if "interior" in tags or "desk" in tags:
+        if "interior" in tags:
             return PALETTES[2]
         if "dawn" in tags:
             return PALETTES[3]
@@ -154,61 +167,96 @@ class PixelComposer:
         w, h = img.size
         base = img.load()
         for y in range(h):
-            # a simple vertical gradient into bg with slight noise
             t = y / h
-            r = int(pal.bg[0] + (pal.accent2[0] - pal.bg[0]) * t * 0.25)
-            g = int(pal.bg[1] + (pal.accent2[1] - pal.bg[1]) * t * 0.25)
-            b = int(pal.bg[2] + (pal.accent2[2] - pal.bg[2]) * t * 0.25)
+            r = int(pal.bg[0] + (pal.accent2[0] - pal.bg[0]) * t * 0.28)
+            g = int(pal.bg[1] + (pal.accent2[1] - pal.bg[1]) * t * 0.28)
+            b = int(pal.bg[2] + (pal.accent2[2] - pal.bg[2]) * t * 0.28)
             for x in range(w):
                 if ((x + y) % 47) == 0:
-                    # faint diagonal shimmer
-                    rr = min(255, r + 10)
-                    gg = min(255, g + 10)
-                    bb = min(255, b + 10)
-                    base[x, y] = (rr, gg, bb)
+                    base[x, y] = (min(255, r + 10), min(255, g + 10), min(255, b + 10))
                 else:
                     base[x, y] = (r, g, b)
 
-    def _draw_floor(self, draw: ImageDraw.ImageDraw, pal: Palette, h_frac: float = 0.3):
+    def _draw_floor(self, draw: ImageDraw.ImageDraw, pal: Palette, h_frac: float = 0.36):
         w, h = draw.im.size
         y = int(h * (1 - h_frac))
-        draw.rectangle([0, y, w, h], fill=(pal.bg[0] + 8, pal.bg[1] + 4, pal.bg[2] + 10), outline=pal.accent2)
+        draw.rectangle([0, y, w, h], fill=(pal.bg[0] + 10, pal.bg[1] + 6, pal.bg[2] + 14), outline=pal.accent2)
 
-    def _draw_ground(self, draw: ImageDraw.ImageDraw, pal: Palette, h_frac: float = 0.25):
+    def _draw_ground(self, draw: ImageDraw.ImageDraw, pal: Palette, h_frac: float = 0.30):
         w, h = draw.im.size
         y = int(h * (1 - h_frac))
-        draw.rectangle([0, y, w, h], fill=(pal.bg[0] + 12, pal.bg[1] + 20, pal.bg[2] + 12))
-        # hint of horizon line
+        draw.rectangle([0, y, w, h], fill=(pal.bg[0] + 14, pal.bg[1] + 22, pal.bg[2] + 14))
         draw.line([0, y - 1, w, y - 1], fill=pal.accent2)
+
+    # ------- interior props -------
+    def _draw_bed(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
+        w, h = draw.im.size
+        y = int(h * 0.70)
+        bed_w = int(w * 0.62)
+        bed_h = 44
+        x0 = int((w - bed_w) / 2)
+        draw.rectangle([x0, y - bed_h, x0 + bed_w, y],
+                       fill=(pal.accent[0] // 2, pal.accent[1] // 2, pal.accent[2] // 2),
+                       outline=pal.accent)
+        # legs
+        for lx in (x0 + 16, x0 + bed_w - 24):
+            draw.rectangle([lx, y, lx + 10, y + 26], fill=(pal.accent[0] // 3, pal.accent[1] // 3, pal.accent[2] // 3))
+
+    def _draw_window(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
+        w, h = draw.im.size
+        ww, wh = int(w * 0.38), int(h * 0.26)
+        x0 = int(w * 0.58)
+        y0 = int(h * 0.26)
+        draw.rectangle([x0, y0, x0 + ww, y0 + wh], outline=pal.accent2)
+        # simple “stars”
+        for _ in range(16):
+            x = rng.randint(x0 + 6, x0 + ww - 6)
+            y = rng.randint(y0 + 6, y0 + wh - 6)
+            draw.point((x, y), fill=(255, 240, 210))
+
+    def _draw_lamp(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
+        w, h = draw.im.size
+        x = int(w * 0.25)
+        y = int(h * 0.66)
+        draw.line([x, y - 30, x, y], fill=pal.fg, width=2)
+        draw.ellipse([x - 10, y - 46, x + 10, y - 30], outline=pal.fg)
+
+    def _draw_mirror(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
+        w, h = draw.im.size
+        x = int(w * 0.33)
+        y = int(h * 0.62)
+        draw.rounded_rectangle([x - 28, y - 60, x + 28, y], radius=10, outline=pal.accent2, width=2)
+
+    def _draw_counter(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
+        w, h = draw.im.size
+        y = int(h * 0.72)
+        x0 = int(w * 0.12)
+        x1 = int(w * 0.88)
+        draw.rectangle([x0, y - 34, x1, y], fill=(pal.accent2[0] // 3, pal.accent2[1] // 3, pal.accent2[2] // 3),
+                       outline=pal.accent2)
+
+    def _draw_kettle(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
+        w, h = draw.im.size
+        x = int(w * 0.64)
+        y = int(h * 0.62)
+        draw.ellipse([x - 14, y - 12, x + 14, y + 10], outline=pal.fg)
+        draw.rectangle([x - 6, y - 20, x + 6, y - 12], fill=pal.fg)
 
     def _draw_desk(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
         w, h = draw.im.size
         y = int(h * 0.72)
         x0 = int(w * 0.18)
         x1 = int(w * 0.82)
-        draw.rectangle([x0, y - 40, x1, y], fill=(pal.accent[0] // 2, pal.accent[1] // 2, pal.accent[2] // 2),
+        draw.rectangle([x0, y - 40, x1, y],
+                       fill=(pal.accent[0] // 2, pal.accent[1] // 2, pal.accent[2] // 2),
                        outline=pal.accent)
-        # legs
-        leg = 8
-        for lx in (x0 + 20, x1 - 20 - leg):
-            draw.rectangle([lx, y, lx + leg, y + 26], fill=(pal.accent[0] // 3, pal.accent[1] // 3, pal.accent[2] // 3))
+        for lx in (x0 + 20, x1 - 28):
+            draw.rectangle([lx, y, lx + 8, y + 24], fill=(pal.accent[0] // 3, pal.accent[1] // 3, pal.accent[2] // 3))
 
-    def _draw_shelves(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
-        w, h = draw.im.size
-        y = int(h * 0.38)
-        for i in range(2):
-            yy = y + i * 26
-            draw.rectangle([int(w * 0.65), yy, int(w * 0.92), yy + 10], outline=pal.accent2)
-            # little books/boxes
-            for j in range(5):
-                bx = int(w * 0.67) + j * 20
-                by = yy - 12 + (j % 2) * 4
-                draw.rectangle([bx, by, bx + 12, by + 12],
-                               fill=(pal.fg[0] - j * 6, pal.fg[1] - j * 5, pal.fg[2] - j * 3))
-
+    # ------- exterior props -------
     def _draw_trees(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
         w, h = draw.im.size
-        base_y = int(h * 0.72)
+        base_y = int(h * 0.74)
         for i in range(6):
             x = int(w * (0.08 + i * 0.14 + (rng.random() * 0.05)))
             size = rng.randint(40, 90)
@@ -216,9 +264,7 @@ class PixelComposer:
 
     def _pinetree(self, draw, base_xy, size, pal):
         x, y = base_xy
-        # trunk
         draw.rectangle([x - 3, y - size // 6, x + 3, y], fill=(60, 40, 50))
-        # canopy
         for k in range(4):
             w = size - k * (size // 5)
             hh = size // 6
@@ -229,23 +275,32 @@ class PixelComposer:
 
     def _draw_buildings(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
         w, h = draw.im.size
-        base_y = int(h * 0.75)
-        for i in range(4):
+        base_y = int(h * 0.78)
+        start = int(w * 0.06)
+        x = start
+        while x < w * 0.94:
             bw = rng.randint(60, 110)
             bh = rng.randint(90, 160)
-            x0 = int(w * 0.05) + i * (bw + 20)
-            y0 = base_y - bh
-            draw.rectangle([x0, y0, x0 + bw, base_y],
+            draw.rectangle([x, base_y - bh, x + bw, base_y],
                            fill=(pal.accent2[0] // 3, pal.accent2[1] // 3, pal.accent2[2] // 3),
                            outline=pal.accent2)
             # windows
             for r in range(2, bh // 24):
                 for c in range(2, bw // 20):
-                    wx = x0 + c * 18
-                    wy = y0 + r * 20
+                    wx = x + c * 18
+                    wy = base_y - bh + r * 20
                     if rng.random() < 0.6:
                         draw.rectangle([wx, wy, wx + 8, wy + 10], fill=pal.fg)
+            x += bw + 14
 
+    def _draw_sign(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
+        w, h = draw.im.size
+        x = int(w * 0.65)
+        y = int(h * 0.52)
+        draw.rectangle([x, y, x + 80, y + 24], outline=pal.fg)
+        draw.line([x + 6, y + 12, x + 74, y + 12], fill=pal.fg, width=2)
+
+    # ------- optional props -------
     def _draw_jar(self, draw: ImageDraw.ImageDraw, pal: Palette, rng: random.Random):
         w, h = draw.im.size
         jar_w, jar_h = 70, 90
@@ -260,16 +315,15 @@ class PixelComposer:
             x = rng.randint(int(w * 0.1), int(w * 0.9))
             y = rng.randint(int(h * 0.2), int(h * 0.8))
             draw.point((x, y), fill=(255, 240, 140))
-            # tiny glow
             draw.ellipse([x - 1, y - 1, x + 1, y + 1], fill=(255, 240, 140))
 
     # ---------- post effects ----------
-    def _pixelize(self, img: Image.Image, factor: int = 6) -> Image.Image:
+    def _pixelize(self, img: Image.Image, factor: int = 5) -> Image.Image:
         w, h = img.size
         small = img.resize((max(1, w // factor), max(1, h // factor)), Image.BILINEAR)
         return small.resize((w, h), Image.NEAREST)
 
-    def _scanlines(self, img: Image.Image, strength: int = 24) -> Image.Image:
+    def _scanlines(self, img: Image.Image, strength: int = 22) -> Image.Image:
         w, h = img.size
         overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(overlay)
@@ -277,7 +331,7 @@ class PixelComposer:
             d.line([0, y, w, y], fill=(0, 0, 0, strength))
         return Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
 
-    def _vignette(self, img: Image.Image, amount: float = 0.2) -> Image.Image:
+    def _vignette(self, img: Image.Image, amount: float = 0.16) -> Image.Image:
         w, h = img.size
         rad = math.sqrt(w * w + h * h) / 2
         mask = Image.new("L", (w, h), 0)
