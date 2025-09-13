@@ -1,7 +1,8 @@
-/* core/static/game/engine.js — Bambi Game
-   - No page refresh on clicks (buttons are type="button"; preventDefault)
-   - Achievements hook intact
-   - Scene pixel art: ensure/poll once, cached afterwards + prewarm on boot
+/* core/static/game/engine.js — Bambi Game (no refresh, ensure-all-on-boot)
+   - Calls /art/ensure-all once on boot to generate all scene images
+   - No per-scene ensure calls on render/click
+   - Buttons are type="button" + preventDefault (no page reloads)
+   - Caches loaded image URLs to avoid re-requests
 */
 
 (function () {
@@ -39,9 +40,8 @@
 
     const log = (...args) => console.debug("[BambiGame]", ...args);
 
-    // pixel art caches
-    const Ensured = new Set();           // which scene keys we already /ensure'd
-    const ArtCache = new Map();          // key -> url string (or "" if not ready yet)
+    // pixel art cache: key -> image URL ("" means not ready yet, don't hammer)
+    const ArtCache = new Map();
 
     // ---------- rendering helpers ----------
     const renderInventory = (inv) => {
@@ -52,9 +52,7 @@
             return wrap;
         }
         wrap.append(el("span", {class: "inventory-label"}, "Inventory:"));
-        keys.forEach((k) =>
-            wrap.append(el("span", {class: "inventory-item"}, `${k} × ${inv[k]}`))
-        );
+        keys.forEach((k) => wrap.append(el("span", {class: "inventory-item"}, `${k} × ${inv[k]}`)));
         return wrap;
     };
 
@@ -92,19 +90,11 @@
     }
 
     // ---------- art helpers ----------
-    function ensureArtOnce(key) {
-        if (Ensured.has(key)) return;
-        Ensured.add(key);
-        fetch(`/art/scene/${encodeURIComponent(key)}/ensure`, {credentials: "include"}).catch(() => {
-        });
-    }
-
     async function loadArtUrl(key) {
         if (ArtCache.has(key)) return ArtCache.get(key);
-        ensureArtOnce(key);
 
         const baseUrl = `/art/scene/${encodeURIComponent(key)}.webp`;
-        // Try a few quick polls; if not ready, remember "" so we don't hammer.
+        // Try up to 3 quick loads; if 404, cache "" to avoid hammering.
         let tries = 0, maxTries = 3;
         const urlTry = () =>
             new Promise((resolve) => {
@@ -120,20 +110,16 @@
             url = await urlTry();
             if (url) break;
             // eslint-disable-next-line no-await-in-loop
-            await new Promise((r) => setTimeout(r, 1000));
+            await new Promise((r) => setTimeout(r, 800));
         }
-        ArtCache.set(key, url); // cache "", too; it will be refreshed by prewarm/next visit
+        ArtCache.set(key, url);
         return url;
     }
 
-    function prewarmAllArt(keys) {
-        // Fire-and-forget ensure for all scenes; lightly try the first 2 for fast first paint
-        keys.forEach((k, i) => {
-            ensureArtOnce(k);
-            if (i < 2) {
-                loadArtUrl(k).catch(() => {
-                });
-            }
+    function prewarmArt(keys, count = 3) {
+        keys.slice(0, count).forEach((k) => {
+            loadArtUrl(k).catch(() => {
+            });
         });
     }
 
@@ -190,7 +176,7 @@
                     body: JSON.stringify({
                         scene: sceneKey,
                         label: choice.label,
-                        gain: choice.gains, // [{item, qty}]
+                        gain: choice.gains,
                     }),
                 });
                 if (r.ok) {
@@ -227,7 +213,7 @@
                     sceneArt.src = url;
                     sceneArt.style.display = "";
                     sceneArtPh.style.display = "none";
-                } // else keep placeholder; it’ll appear later once generated
+                } // else keep placeholder until generator finishes (no extra ensures here)
             });
 
             // inventory (optional)
@@ -247,7 +233,6 @@
                     applyGains(ch.gains);
                     safePostChoice(key, ch);
 
-                    // external/internal link (intentional navigation)
                     if (ch.href) {
                         const go = ch.href;
                         if (/^https?:\/\//i.test(go)) window.location.href = go;
@@ -255,7 +240,6 @@
                         return;
                     }
 
-                    // local scene transition (no refresh)
                     const next = ch.target;
                     if (!next) return;
                     if (!scenes[next]) {
@@ -294,8 +278,11 @@
                 startKey = loaded.start;
                 const initial = state.current && scenes[state.current] ? state.current : startKey;
 
-                // prewarm art ensures so later clicks don't do work
-                prewarmAllArt(Object.keys(scenes));
+                // NEW: kick server to generate ALL scene images once (background)
+                fetch("/art/ensure-all", {credentials: "include"}).catch(() => {
+                });
+                // Light prewarm so first few scenes pop instantly
+                prewarmArt(Object.keys(scenes), 3);
 
                 // debug: broken links
                 const broken = [];

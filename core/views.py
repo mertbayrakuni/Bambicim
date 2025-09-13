@@ -1,7 +1,5 @@
 # core/views.py
-import json
 import logging
-import os
 import re
 
 from django.conf import settings
@@ -12,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
 from django.core.validators import validate_email
 from django.db.models import F
-from django.http import JsonResponse, Http404, HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -422,3 +420,37 @@ def scene_art_image(request, scene_key: str):
     if not row or not row.image_webp:
         return HttpResponse(status=404)
     return HttpResponse(bytes(row.image_webp), content_type="image/webp")
+
+
+# --- add near the other imports at top ---
+import json
+import os
+
+from django.views.decorators.http import require_GET
+from django.http import JsonResponse
+
+
+# ... your existing imports stay ...
+
+# Ensure pixel-art for ALL scenes (DB first, static fallback)
+@require_GET
+def scene_art_ensure_all(_request):
+    # Prefer DB scenes
+    keys = list(Scene.objects.values_list("key", flat=True))
+
+    # Fallback to static JSON if DB is empty
+    if not keys:
+        try:
+            p = os.path.join(settings.BASE_DIR, "core", "static", "game", "scenes.json")
+            with open(p, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            keys = list((data.get("scenes") or {}).keys())
+        except Exception:
+            keys = []
+
+    kicked = 0
+    for k in keys:
+        _ensure_scene_art(k)
+        kicked += 1
+
+    return JsonResponse({"ok": True, "count": kicked, "keys": keys})
