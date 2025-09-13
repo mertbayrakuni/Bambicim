@@ -4,11 +4,12 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.db.models import Sum
 
-from .models import Achievement, UserAchievement
 from .models import (
     Item, Inventory, GameSession, ChoiceLog,
     Scene, Choice, ChoiceGain,
+    Achievement, UserAchievement, SceneArt,
 )
+from .views import _ensure_scene_art  # background generator trigger
 
 # ── Branding ───────────────────────────────────────────────────────────────────
 admin.site.site_header = "Bambicim Admin"
@@ -48,7 +49,6 @@ class ItemAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
     ordering = ("name",)
 
-    # Robust counts (avoids DB-specific 500s)
     def holders(self, obj):
         # number of distinct users who hold > 0 of this item
         return obj.inventory_set.filter(qty__gt=0).values("user").distinct().count()
@@ -69,7 +69,6 @@ class InventoryAdmin(admin.ModelAdmin):
     list_filter = ("item",)
     autocomplete_fields = ("user", "item")
     ordering = ("user__username", "item__name")
-
     actions = ["zero_out", "export_csv"]
 
     @admin.action(description="Set quantity to 0 for selected rows")
@@ -120,11 +119,11 @@ class ChoiceGainInline(admin.TabularInline):
 
 class ChoiceInline(admin.TabularInline):
     """
-    Choices attached to a Scene. NB: the model also has `next_scene` FK to Scene,
-    so we must tell Django which FK links this inline to the parent.
+    Choices attached to a Scene. The Choice model also has `next_scene` FK to Scene,
+    so we must specify which FK links this inline to the parent.
     """
     model = Choice
-    fk_name = "scene"  # ← fixes “more than one ForeignKey to Scene” error
+    fk_name = "scene"  # ← resolves “more than one ForeignKey to Scene” ambiguity
     extra = 1
     show_change_link = True
     autocomplete_fields = ("next_scene",)
@@ -151,6 +150,7 @@ class ChoiceAdmin(admin.ModelAdmin):
     ordering = ("scene__key", "order", "code")
 
 
+# ── Achievements ───────────────────────────────────────────────────────────────
 @admin.register(Achievement)
 class AchievementAdmin(admin.ModelAdmin):
     list_display = ("slug", "name", "rule_type", "rule_param", "threshold", "is_active")
@@ -163,3 +163,21 @@ class UserAchievementAdmin(admin.ModelAdmin):
     list_display = ("user", "achievement", "achieved_at")
     list_filter = ("achievement",)
     search_fields = ("user__username", "achievement__slug")
+
+
+# ── Scene pixel art cache ──────────────────────────────────────────────────────
+@admin.register(SceneArt)
+class SceneArtAdmin(admin.ModelAdmin):
+    list_display = ("key", "status", "updated_at")
+    search_fields = ("key",)
+    actions = ["regenerate_selected"]
+
+    @admin.action(description="Regenerate pixel art")
+    def regenerate_selected(self, request, queryset):
+        count = 0
+        for row in queryset:
+            row.status = "pending"
+            row.save(update_fields=["status", "updated_at"])
+            _ensure_scene_art(row.key)  # queue background regeneration
+            count += 1
+        self.message_user(request, f"Queued regeneration for {count} scene(s).")

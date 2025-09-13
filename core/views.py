@@ -17,11 +17,14 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.html import strip_tags
+from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
 from utils.github import get_recent_public_repos_cached
+from .art import generate_pixel_art, run_in_thread, _prompt_for
 from .models import Scene, Item, Inventory, ChoiceLog, Achievement, UserAchievement
+from .models import SceneArt
 
 log = logging.getLogger("app")
 
@@ -367,3 +370,55 @@ def _award_achievements(user):
             unlocked.append({"slug": a.slug, "name": a.name, "emoji": a.emoji})
 
     return unlocked
+
+
+def _scene_for_prompt(scene_key: str):
+    from .models import Scene
+    sc = Scene.objects.filter(key=scene_key).first()
+    if sc:
+        return sc.title or scene_key, sc.text or ""
+    return scene_key, ""
+
+
+def _ensure_scene_art(scene_key: str):
+    # idempotent: if ready, do nothing; if pending, leave; if failed, retry
+    obj, created = SceneArt.objects.get_or_create(
+        key=scene_key,
+        defaults={"prompt": "", "status": "pending"},
+    )
+    if obj.status == "ready":
+        return
+
+    title, text = _scene_for_prompt(scene_key)
+    prompt = _prompt_for(scene_key, title, text)
+    obj.prompt = prompt
+    obj.status = "pending"
+    obj.save(update_fields=["prompt", "status", "updated_at"])
+
+    def worker():
+        try:
+            data = generate_pixel_art(prompt)
+            SceneArt.objects.filter(pk=obj.pk).update(
+                image_webp=data, status="ready", updated_at=timezone.now()
+            )
+        except Exception:
+            SceneArt.objects.filter(pk=obj.pk).update(status="failed", updated_at=timezone.now())
+
+    run_in_thread(worker)
+
+
+@require_GET
+@login_required
+def scene_art_ensure(request, scene_key: str):
+    _ensure_scene_art(scene_key)
+    row = SceneArt.objects.filter(key=scene_key).first()
+    return JsonResponse({"ok": True, "status": row.status if row else "pending"})
+
+
+@require_GET
+@cache_control(public=True, max_age=86400)
+def scene_art_image(request, scene_key: str):
+    row = SceneArt.objects.filter(key=scene_key, status="ready").only("image_webp").first()
+    if not row or not row.image_webp:
+        return HttpResponse(status=404)
+    return HttpResponse(bytes(row.image_webp), content_type="image/webp")

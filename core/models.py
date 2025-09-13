@@ -94,9 +94,9 @@ class ChoiceGain(models.Model):
 
 
 class Achievement(models.Model):
-    RULE_COLLECT_ITEM = "collect_item"      # rule_param = item slug
-    RULE_COLLECT_COUNT = "collect_count"    # threshold = total qty
-    RULE_REACH_SCENE = "reach_scene"        # rule_param = scene key
+    RULE_COLLECT_ITEM = "collect_item"  # rule_param = item slug
+    RULE_COLLECT_COUNT = "collect_count"  # threshold = total qty
+    RULE_REACH_SCENE = "reach_scene"  # rule_param = scene key
 
     RULES = [
         (RULE_COLLECT_ITEM, "Collect specific item"),
@@ -124,3 +124,14 @@ class UserAchievement(models.Model):
 
     class Meta:
         unique_together = [("user", "achievement")]
+
+
+class SceneArt(models.Model):
+    key = models.CharField(max_length=64, unique=True, db_index=True)
+    prompt = models.TextField()
+    status = models.CharField(max_length=16, default="pending")  # pending|ready|failed
+    image_webp = models.BinaryField(null=True, blank=True)  # raw webp bytes
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.key} ({self.status})"

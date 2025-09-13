@@ -31,4 +31,8 @@ urlpatterns = [
     # robots + sitemap
     path("robots.txt", TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
+
+    # art
+    path("art/scene/<str:scene_key>/ensure", core_views.scene_art_ensure, name="scene_art_ensure"),
+    path("art/scene/<str:scene_key>.webp", core_views.scene_art_image, name="scene_art_image"),
 ]

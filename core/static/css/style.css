@@ -845,3 +845,22 @@ a {
     }
 
 }
+
+/* Scene pixel image */
+.scene-pixel {
+    width: 100%;
+    max-width: 420px;
+    aspect-ratio: 1 / 1;
+    image-rendering: pixelated;
+    border-radius: var(--radius, 16px);
+    border: 1px solid var(--line, #2b2635);
+    display: block;
+    margin: 6px 0 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, .15) inset;
+}
+
+@media (max-width: 640px) {
+    .scene-pixel {
+        max-width: 100%;
+    }
+}

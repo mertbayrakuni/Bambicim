@@ -4,6 +4,7 @@
        { label, next,  gain:  ["slug" | {slug, qty}], href? }
    - Loads /game/scenes first; falls back to /static/game/scenes.json
    - Best-effort POST to /game/choice with CSRF; failure doesn’t block UI
+   - NEW: scene pixel art (ensure + poll) & achievements toast hook
 */
 
 (function () {
@@ -35,31 +36,33 @@
     };
 
     function getCookie(name) {
-        const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        const m = document.cookie.match("(^|;)\\s*" + name + "\\s*=\\s*([^;]+)");
         return m ? decodeURIComponent(m.pop()) : "";
     }
 
     const log = (...args) => console.debug("[BambiGame]", ...args);
 
-    // ---------- rendering ----------
+    // ---------- rendering helpers ----------
     const renderInventory = (inv) => {
         const wrap = el("div", {class: "inventory-wrap"});
-        const keys = Object.keys(inv || {}).filter(k => (inv[k] || 0) > 0);
+        const keys = Object.keys(inv || {}).filter((k) => (inv[k] || 0) > 0);
         if (!keys.length) {
             wrap.append(el("span", {class: "inventory-empty"}, "Inventory: (empty)"));
             return wrap;
         }
         wrap.append(el("span", {class: "inventory-label"}, "Inventory:"));
-        keys.forEach(k => wrap.append(el("span", {class: "inventory-item"}, `${k} × ${inv[k]}`)));
+        keys.forEach((k) =>
+            wrap.append(el("span", {class: "inventory-item"}, `${k} × ${inv[k]}`))
+        );
         return wrap;
     };
 
     // ---------- data normalization ----------
     function normalizeChoice(ch) {
         const label = (ch.text ?? ch.label ?? "Continue").toString();
-        const target = (ch.target ?? ch.next ?? null);
-        const href = (ch.href ?? null);
-        const gainsRaw = (ch.gains ?? ch.gain ?? []);
+        const target = ch.target ?? ch.next ?? null;
+        const href = ch.href ?? null;
+        const gainsRaw = ch.gains ?? ch.gain ?? [];
         const gains = [];
 
         if (Array.isArray(gainsRaw)) {
@@ -101,10 +104,11 @@
         invBar.append(resetBtn);
 
         const card = el("div", {class: "game-card scene"});
+        const sceneArt = el("img", {class: "scene-pixel", alt: ""});
         const sceneTitle = el("h3");
         const sceneText = el("p");
         const choicesWrap = el("div", {class: "choices"});
-        card.append(sceneTitle, sceneText, choicesWrap);
+        card.append(sceneArt, sceneTitle, sceneText, choicesWrap);
 
         if (SHOW_INV) container.append(invBar);
         container.append(card);
@@ -122,7 +126,36 @@
             }
         };
 
-// replace your existing safePostChoice with this version
+        // ---------- scene pixel art (ensure + poll for ready image) ----------
+        async function ensureAndLoadArt(key) {
+            try {
+                // fire-and-forget ensure (may be pending/ready)
+                fetch(`/art/scene/${encodeURIComponent(key)}/ensure`, {credentials: "include"})
+                    .catch(() => {
+                    });
+
+                const baseUrl = `/art/scene/${encodeURIComponent(key)}.webp`;
+                let tries = 0;
+                const maxTries = 8;
+
+                return await new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => resolve(baseUrl);
+                    img.onerror = () => {
+                        if (tries++ < maxTries) {
+                            setTimeout(() => (img.src = baseUrl + "?t=" + Date.now()), 1200);
+                        } else {
+                            resolve("");
+                        }
+                    };
+                    img.src = baseUrl + "?t=" + Date.now();
+                });
+            } catch {
+                return "";
+            }
+        }
+
+        // ---------- send choice to server (achievements hook) ----------
         const safePostChoice = async (sceneKey, choice) => {
             try {
                 const csrftoken = getCookie("csrftoken");
@@ -153,6 +186,7 @@
             }
         };
 
+        // ---------- render loop ----------
         const render = (key) => {
             const s = scenes[key];
             if (!s) {
@@ -162,14 +196,28 @@
             state.current = key;
             Store.save(state);
 
+            // text
             sceneTitle.textContent = s.title || "";
             sceneText.textContent = s.text || "";
 
+            // pixel art
+            sceneArt.removeAttribute("src");
+            sceneArt.setAttribute("alt", s.title || key);
+            sceneArt.style.display = "none";
+            ensureAndLoadArt(key).then((url) => {
+                if (url) {
+                    sceneArt.src = url;
+                    sceneArt.style.display = "";
+                }
+            });
+
+            // inventory (optional)
             if (SHOW_INV) {
                 invBar.querySelector(".inventory-wrap")?.remove();
                 invBar.append(renderInventory(state.inv));
             }
 
+            // choices
             choicesWrap.replaceChildren();
             for (const ch of s.choices || []) {
                 const btn = el("button", {class: "choice-btn"}, ch.label || "Continue");
@@ -197,6 +245,7 @@
             }
         };
 
+        // ---------- boot ----------
         async function loadScenes() {
             const tryUrls = ["/game/scenes", "/static/game/scenes.json", "/game/scenes.json"];
             for (const url of tryUrls) {
@@ -221,12 +270,12 @@
                 const loaded = await loadScenes();
                 scenes = loaded.scenes;
                 startKey = loaded.start;
-                const initial = (state.current && scenes[state.current]) ? state.current : startKey;
+                const initial = state.current && scenes[state.current] ? state.current : startKey;
 
                 // Debug: broken links at boot
                 const broken = [];
                 for (const [k, s] of Object.entries(scenes)) {
-                    (s.choices || []).forEach(c => {
+                    (s.choices || []).forEach((c) => {
                         const t = c.target;
                         if (t && !scenes[t]) broken.push({from: k, to: t, choice: c.label});
                     });
