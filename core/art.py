@@ -77,6 +77,9 @@ KEYWORD_TAGS: Dict[str, Iterable[str]] = {
     "fireflies": ["fireflies"],
 }
 
+# Only these scene KEYS may render a jar (and optionally fireflies)
+ALLOWED_JAR_KEYS = {"home", "save", "rest", "home-rest"}
+
 
 def _hash_seed(s: str) -> int:
     return int(hashlib.sha256(s.encode("utf-8")).hexdigest(), 16) & 0xFFFFFFFF
@@ -142,15 +145,49 @@ class PixelComposer:
 
     # ---------- parsing & palette ----------
     def _tags_from_prompt(self, prompt: str) -> List[str]:
+        """
+        Extract tags from the combined "key :: title :: text" prompt.
+        - Uses KEYWORD_TAGS matches across key/title/text.
+        - Enforces 'jar' (and usually 'fireflies') only on whitelisted keys.
+        - Falls back to a tame interior scene if nothing matched.
+        """
         p = prompt.lower()
+        # try to grab the scene key from 'key :: title :: text'
+        key_part = p.split("::", 1)[0].strip() if "::" in p else p.strip()
+
         tags = set()
-        for k, tg in KEYWORD_TAGS.items():
-            if k in p:
+        for kw, tg in KEYWORD_TAGS.items():
+            if kw in p:
                 for t in tg:
                     tags.add(t)
-        # default fallback (no jar by default)
+
+        # If nothing matched at all, try a gentle default (no jar)
         if not tags:
-            tags.update(["interior", "bed", "window"])
+            # If the key itself looks like one of our known keywords, seed from it
+            if key_part in KEYWORD_TAGS:
+                tags.update(KEYWORD_TAGS[key_part])
+            else:
+                tags.update(["interior", "bed", "window"])  # safe default
+
+        # Hard rules:
+        # 1) JAR only on allowed keys
+        if "jar" in tags and key_part not in ALLOWED_JAR_KEYS:
+            tags.discard("jar")
+
+        # 2) FIRELIES are allowed outdoors or jar-scenes; otherwise drop
+        if "fireflies" in tags:
+            is_outdoor = any(t in tags for t in ("trees", "buildings", "exterior"))
+            if (key_part not in ALLOWED_JAR_KEYS) and not is_outdoor:
+                tags.discard("fireflies")
+
+        # 3) Ensure we always have an interior/exterior base tag
+        if not any(t in tags for t in ("interior", "exterior")):
+            # guess from context; default to interior
+            if any(t in tags for t in ("trees", "buildings", "sign")):
+                tags.add("exterior")
+            else:
+                tags.add("interior")
+
         return list(tags)
 
     def _pick_palette(self, tags: List[str], rng: random.Random) -> Palette:
