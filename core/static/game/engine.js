@@ -1,10 +1,7 @@
-/* core/static/game/engine.js — Bambi Game (pink, link-aware, CSRF, logs)
-   - Works with both shapes:
-       { text, target, gains: [{item, qty}], href? }
-       { label, next,  gain:  ["slug" | {slug, qty}], href? }
-   - Loads /game/scenes first; falls back to /static/game/scenes.json
-   - Best-effort POST to /game/choice with CSRF; failure doesn’t block UI
-   - NEW: scene pixel art (ensure + poll) & achievements toast hook
+/* core/static/game/engine.js — Bambi Game
+   - No page refresh on clicks (buttons are type="button"; preventDefault)
+   - Achievements hook intact
+   - Scene pixel art: ensure/poll once, cached afterwards + prewarm on boot
 */
 
 (function () {
@@ -41,6 +38,10 @@
     }
 
     const log = (...args) => console.debug("[BambiGame]", ...args);
+
+    // pixel art caches
+    const Ensured = new Set();           // which scene keys we already /ensure'd
+    const ArtCache = new Map();          // key -> url string (or "" if not ready yet)
 
     // ---------- rendering helpers ----------
     const renderInventory = (inv) => {
@@ -90,13 +91,61 @@
         return {start, scenes};
     }
 
+    // ---------- art helpers ----------
+    function ensureArtOnce(key) {
+        if (Ensured.has(key)) return;
+        Ensured.add(key);
+        fetch(`/art/scene/${encodeURIComponent(key)}/ensure`, {credentials: "include"}).catch(() => {
+        });
+    }
+
+    async function loadArtUrl(key) {
+        if (ArtCache.has(key)) return ArtCache.get(key);
+        ensureArtOnce(key);
+
+        const baseUrl = `/art/scene/${encodeURIComponent(key)}.webp`;
+        // Try a few quick polls; if not ready, remember "" so we don't hammer.
+        let tries = 0, maxTries = 3;
+        const urlTry = () =>
+            new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(baseUrl);
+                img.onerror = () => resolve("");
+                img.src = baseUrl + "?t=" + Date.now();
+            });
+
+        let url = "";
+        while (tries++ < maxTries) {
+            // eslint-disable-next-line no-await-in-loop
+            url = await urlTry();
+            if (url) break;
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((r) => setTimeout(r, 1000));
+        }
+        ArtCache.set(key, url); // cache "", too; it will be refreshed by prewarm/next visit
+        return url;
+    }
+
+    function prewarmAllArt(keys) {
+        // Fire-and-forget ensure for all scenes; lightly try the first 2 for fast first paint
+        keys.forEach((k, i) => {
+            ensureArtOnce(k);
+            if (i < 2) {
+                loadArtUrl(k).catch(() => {
+                });
+            }
+        });
+    }
+
     // ---------- app ----------
     const mount = (container) => {
         container.classList.add("b-game");
 
         const invBar = el("div", {class: "inventory-bar"});
-        const resetBtn = el("button", {class: "reset-btn"}, "Reset");
-        resetBtn.addEventListener("click", () => {
+        const resetBtn = el("button", {class: "reset-btn", type: "button"}, "Reset");
+        resetBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             Store.clear();
             state = {current: null, inv: {}};
             render(startKey);
@@ -104,11 +153,12 @@
         invBar.append(resetBtn);
 
         const card = el("div", {class: "game-card scene"});
+        const sceneArtPh = el("div", {class: "scene-pixel ph"});
         const sceneArt = el("img", {class: "scene-pixel", alt: ""});
         const sceneTitle = el("h3");
         const sceneText = el("p");
         const choicesWrap = el("div", {class: "choices"});
-        card.append(sceneArt, sceneTitle, sceneText, choicesWrap);
+        card.append(sceneArtPh, sceneArt, sceneTitle, sceneText, choicesWrap);
 
         if (SHOW_INV) container.append(invBar);
         container.append(card);
@@ -126,36 +176,6 @@
             }
         };
 
-        // ---------- scene pixel art (ensure + poll for ready image) ----------
-        async function ensureAndLoadArt(key) {
-            try {
-                // fire-and-forget ensure (may be pending/ready)
-                fetch(`/art/scene/${encodeURIComponent(key)}/ensure`, {credentials: "include"})
-                    .catch(() => {
-                    });
-
-                const baseUrl = `/art/scene/${encodeURIComponent(key)}.webp`;
-                let tries = 0;
-                const maxTries = 8;
-
-                return await new Promise((resolve) => {
-                    const img = new Image();
-                    img.onload = () => resolve(baseUrl);
-                    img.onerror = () => {
-                        if (tries++ < maxTries) {
-                            setTimeout(() => (img.src = baseUrl + "?t=" + Date.now()), 1200);
-                        } else {
-                            resolve("");
-                        }
-                    };
-                    img.src = baseUrl + "?t=" + Date.now();
-                });
-            } catch {
-                return "";
-            }
-        }
-
-        // ---------- send choice to server (achievements hook) ----------
         const safePostChoice = async (sceneKey, choice) => {
             try {
                 const csrftoken = getCookie("csrftoken");
@@ -173,20 +193,16 @@
                         gain: choice.gains, // [{item, qty}]
                     }),
                 });
-
-                // ⬇️ ACHIEVEMENT HOOK — fire toast/HUD updates with server response
                 if (r.ok) {
                     const resp = await r.json().catch(() => null);
                     if (resp && window.ttwAchv && typeof window.ttwAchv.onChoiceResponse === "function") {
                         window.ttwAchv.onChoiceResponse(resp);
                     }
                 }
-            } catch {
-                /* ignore network errors; UI already advanced */
+            } catch { /* ignore */
             }
         };
 
-        // ---------- render loop ----------
         const render = (key) => {
             const s = scenes[key];
             if (!s) {
@@ -200,15 +216,18 @@
             sceneTitle.textContent = s.title || "";
             sceneText.textContent = s.text || "";
 
-            // pixel art
+            // pixel art (cached + placeholder)
             sceneArt.removeAttribute("src");
             sceneArt.setAttribute("alt", s.title || key);
             sceneArt.style.display = "none";
-            ensureAndLoadArt(key).then((url) => {
+            sceneArtPh.style.display = "";
+
+            loadArtUrl(key).then((url) => {
                 if (url) {
                     sceneArt.src = url;
                     sceneArt.style.display = "";
-                }
+                    sceneArtPh.style.display = "none";
+                } // else keep placeholder; it’ll appear later once generated
             });
 
             // inventory (optional)
@@ -220,12 +239,15 @@
             // choices
             choicesWrap.replaceChildren();
             for (const ch of s.choices || []) {
-                const btn = el("button", {class: "choice-btn"}, ch.label || "Continue");
-                btn.addEventListener("click", () => {
+                const btn = el("button", {class: "choice-btn", type: "button"}, ch.label || "Continue");
+                btn.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     log("Click choice:", ch);
                     applyGains(ch.gains);
                     safePostChoice(key, ch);
 
+                    // external/internal link (intentional navigation)
                     if (ch.href) {
                         const go = ch.href;
                         if (/^https?:\/\//i.test(go)) window.location.href = go;
@@ -233,6 +255,7 @@
                         return;
                     }
 
+                    // local scene transition (no refresh)
                     const next = ch.target;
                     if (!next) return;
                     if (!scenes[next]) {
@@ -245,7 +268,6 @@
             }
         };
 
-        // ---------- boot ----------
         async function loadScenes() {
             const tryUrls = ["/game/scenes", "/static/game/scenes.json", "/game/scenes.json"];
             for (const url of tryUrls) {
@@ -272,7 +294,10 @@
                 startKey = loaded.start;
                 const initial = state.current && scenes[state.current] ? state.current : startKey;
 
-                // Debug: broken links at boot
+                // prewarm art ensures so later clicks don't do work
+                prewarmAllArt(Object.keys(scenes));
+
+                // debug: broken links
                 const broken = [];
                 for (const [k, s] of Object.entries(scenes)) {
                     (s.choices || []).forEach((c) => {
