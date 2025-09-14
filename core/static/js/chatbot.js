@@ -1,12 +1,10 @@
 // ---------- safe markdown fallback ----------
 window.marked = window.marked || {
-    parse: s => String(s || "")
-        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        .replace(/\n/g, "<br>")
+    parse: s => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")
 };
 
 (() => {
-    // ========= tiny logger (F9) =========
+    // ========= lightweight debug to on-screen panel (F9) =========
     const DBG = {box: null, body: null, lines: []};
     const dlog = (...a) => {
         try {
@@ -32,7 +30,7 @@ window.marked = window.marked || {
             if (DBG.lines.length > 400) DBG.lines.shift();
             DBG.body.textContent = DBG.lines.join("\n");
             DBG.body.scrollTop = DBG.body.scrollHeight;
-            console.log("[BMB]", ...a);
+            // no console.log spam anymore
         } catch {
         }
     };
@@ -49,10 +47,9 @@ window.marked = window.marked || {
             return Math.random().toString(36).slice(2);
         }
     };
-
     const normalizeMd = s => (s || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\\n/g, "\n");
 
-    // ========= bubbles =========
+    // ========= bubbles & typing =========
     function addBubble(chatEl, text, who) {
         if (!chatEl) return;
         const w = document.createElement("div");
@@ -81,14 +78,14 @@ window.marked = window.marked || {
     }
 
     function splitSteps(text) {
-        const raw = text || "";
-        const norm = normalizeMd(raw).replace(/\n{3,}/g, "\n\n").trim();
+        const norm = normalizeMd(text || "").replace(/\n{3,}/g, "\n\n").trim();
         if (!norm) return [];
         const blocks = norm.split(/\n\s*\n/);
-        dlog("MD ▶ BLOCKS", blocks.map(b => (b.slice(0, 80) + "…").replace(/\n/g, "⏎")));
+        dlog("MD ▶", blocks.map(b => (b.slice(0, 80) + "…").replace(/\n/g, "⏎")));
         return blocks.slice(0, 12);
     }
 
+    // ========= gallery (optional) =========
     function resolveUrl(u) {
         if (!u) return null;
         if (/^https?:\/\//i.test(u)) return u;
@@ -97,7 +94,6 @@ window.marked = window.marked || {
         return location.origin + "/" + u.replace(/^\.?\//, "");
     }
 
-    // ========= gallery (2-line clamp) =========
     function hardClampCaptions(scope) {
         const doClamp = () => {
             const caps = (scope || document).querySelectorAll(".bmb-gallery .cap");
@@ -134,7 +130,6 @@ window.marked = window.marked || {
         wrap.className = "bmb-b a has-gallery";
         const grid = document.createElement("div");
         grid.className = "bmb-gallery";
-
         items.slice(0, 12).forEach((it) => {
             const obj = typeof it === "string" ? {image: it, adres: it} : (it || {});
             const imgSrc = resolveUrl(obj.image || obj.adres);
@@ -162,7 +157,6 @@ window.marked = window.marked || {
             tile.appendChild(cap);
             grid.appendChild(tile);
         });
-
         wrap.appendChild(grid);
         const ts = document.createElement("div");
         ts.className = "bmb-ts";
@@ -173,12 +167,12 @@ window.marked = window.marked || {
         hardClampCaptions(wrap);
     }
 
+    // ========= modal shell (grow-from-origin) =========
     const pageRect = (el) => {
         const r = el.getBoundingClientRect();
         return {left: r.left + scrollX, top: r.top + scrollY, width: r.width, height: r.height};
     };
 
-    // ========= Modal (grow-from-origin) =========
     function openModal(opts) {
         const overlay = document.createElement("div");
         overlay.className = "bmb-overlay";
@@ -205,16 +199,13 @@ window.marked = window.marked || {
           <div class="bmb-disclaimer">Bambi, Bambicim için hazırlanmış deneysel bir sohbet asistanıdır</div>
         </div>
       </div>`;
-
         document.body.append(overlay, panel);
         document.body.classList.add("bmb-modal-open");
 
         const micBtn = panel.querySelector("#bmbMic");
         if (micBtn) {
-            micBtn.innerHTML = `
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2zM11 19h2v3h-2v-3z"/>
-        </svg>`;
+            micBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2zM11 19h2v3h-2v-3z"/></svg>`;
         }
 
         const originEl = typeof opts?.animateFrom === "string" ? document.querySelector(opts.animateFrom) : (opts?.animateFrom || null);
@@ -283,8 +274,6 @@ window.marked = window.marked || {
             destroy() {
             }
         };
-
-        // --- DOM refs ---
         const chat = root.querySelector(".bmb-log");
         const input = root.querySelector(".bmb-inp");
         const sendB = root.querySelector(".bmb-send");
@@ -294,14 +283,13 @@ window.marked = window.marked || {
         const okB = root.querySelector("#bmbOk");
         const cancelB = root.querySelector("#bmbCancel");
 
-        // --- Voice state ---
+        // ===== Voice (SR) + animated waves =====
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         let rec = null, listening = false, starting = false;
         let finalBuf = "", interimBuf = "";
         let srKeepAlive = false;
         let mediaStream = null;
 
-        // --- WebAudio waves ---
         let audioCtx = null, analyser = null, rafId = 0;
 
         function startWaves(stream) {
@@ -341,7 +329,7 @@ window.marked = window.marked || {
                 src.connect(analyser);
                 draw();
             } catch (e) {
-                console.warn("waves init failed", e);
+                dlog("waves init failed", e);
             }
         }
 
@@ -397,7 +385,7 @@ window.marked = window.marked || {
         async function srStart() {
             if (starting || listening) return;
             if (!srSupported()) {
-                console.warn("SpeechRecognition not supported");
+                dlog("SpeechRecognition not supported");
                 mic && (mic.disabled = true);
                 return;
             }
@@ -408,7 +396,7 @@ window.marked = window.marked || {
                 mediaStream = mediaStream || await navigator.mediaDevices.getUserMedia({audio: true});
                 startWaves(mediaStream);
             } catch (err) {
-                console.warn("Mic permission error", err);
+                dlog("Mic permission error", err);
             }
             rec = new SR();
             rec.lang = "tr-TR";
@@ -446,7 +434,7 @@ window.marked = window.marked || {
                 rec.start();
             } catch (err) {
                 starting = false;
-                console.warn("SR start fail", err);
+                dlog("SR start fail", err);
             }
         }
 
@@ -466,7 +454,7 @@ window.marked = window.marked || {
             if (listening) srStop();
         });
 
-        // ========= TTS (optional, off by default) =========
+        // ===== TTS hooks (disabled unless you add /tts) =====
         const panelEl = root.closest(".bmb-panel");
         const ttsBtn = panelEl?.querySelector(".bmb-tts");
         const tts = {
@@ -582,8 +570,6 @@ window.marked = window.marked || {
         });
         updateTtsBtn();
         if (ttsSupported()) initVoicesOnce();
-
-        // Optional backend TTS fetch (disabled unless you build /tts)
         const ttsEndpoint = location.origin + "/tts";
 
         async function speakAndGetDuration(text) {
@@ -598,7 +584,8 @@ window.marked = window.marked || {
             };
             try {
                 const res = await fetch(ttsEndpoint, {
-                    method: "POST", headers: {"Content-Type": "application/json"},
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
                     body: JSON.stringify({text: clean, provider: "polly", voice: "Burcu"})
                 });
                 if (!res.ok) return {
@@ -619,15 +606,16 @@ window.marked = window.marked || {
                         if (tts.audio) tts.audio.pause();
                     } catch {
                     }
-                    tts.audio = new Audio(url);
-                    tts.audio.onended = () => {
+                    ;const a = new Audio(url);
+                    a.onended = () => {
                         try {
                             URL.revokeObjectURL(url);
                         } catch {
                         }
                         resolve();
                     };
-                    tts.audio.play().catch(() => resolve());
+                    a.play().catch(() => resolve());
+                    tts.audio = a;
                 });
                 return {play, durationMs: durationMs || Math.max(1200, clean.length * 55)};
             } catch {
@@ -638,7 +626,7 @@ window.marked = window.marked || {
             }
         }
 
-        // Typewriter synced to optional audio
+        // ===== typewriter (synced with optional audio) =====
         function typeWriter(el, text, msPerChar = 16) {
             return new Promise(res => {
                 const full = normalizeMd(text || "");
@@ -682,7 +670,7 @@ window.marked = window.marked || {
             }
         };
 
-        // ========= HTTP transport =========
+        // ===== HTTP transport only =====
         async function httpSend(txt) {
             try {
                 const res = await fetch("/api/chat", {
@@ -755,7 +743,7 @@ window.marked = window.marked || {
         };
     }
 
-    // expose (kept name so your launcher in base.html continues to work) :contentReference[oaicite:4]{index=4}
+    // expose (kept name so your launcher continues to work) — based on your current setup :contentReference[oaicite:1]{index=1}
     window.TTWChatbot = {openModal, mount};
     try {
         window.dispatchEvent(new Event('bmb-ready'));
