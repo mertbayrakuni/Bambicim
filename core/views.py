@@ -1,6 +1,5 @@
 # core/views.py
 import logging
-import re
 
 from django.conf import settings
 from django.contrib import messages
@@ -423,11 +422,9 @@ def scene_art_image(request, scene_key: str):
 
 
 # --- add near the other imports at top ---
-import json
 import os
 
 from django.views.decorators.http import require_GET
-from django.http import JsonResponse
 
 
 # ... your existing imports stay ...
@@ -454,3 +451,42 @@ def scene_art_ensure_all(_request):
         kicked += 1
 
     return JsonResponse({"ok": True, "count": kicked, "keys": keys})
+
+
+# core/views.py
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json, re, random, datetime as dt
+
+
+@csrf_exempt
+def api_chat(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        data = {}
+    q = (data.get("q") or "").strip()
+    reply = simple_reply(q)
+    # You can also return images like: {"urls": [{"image": "/static/img/..", "title": "…"}]}
+    return JsonResponse({"reply": reply})
+
+
+def simple_reply(q: str) -> str:
+    if not q:
+        return "Merhaba! Ben Bambi 💖 Bugün sana nasıl yardımcı olabilirim?"
+    low = q.lower()
+    if any(w in low for w in ["merhaba", "selam", "hi", "hello"]):
+        return "Selam tatlım! 💕 Ne konuşmak istersin?"
+    if "saat" in low or "time" in low:
+        return f"Şu an saat {dt.datetime.now().strftime('%H:%M')}."
+    if "yardım" in low or "help" in low:
+        return "Kısa komutlar:\n\n• “hakkında”\n• herhangi bir soru 💗"
+    if re.search(r"\b(hakkında|about)\b", low):
+        return "Bambicim kişisel oyunlu alanım. Bugün basit cevaplar, yarın daha akıllı! ✨"
+    return random.choice([
+        "Anladım tatlım. Biraz daha açar mısın? 💞",
+        "Güzel soru! Birlikte çözelim mi? 💖",
+        "Hmm… Biraz daha detay verir misin?"
+    ])

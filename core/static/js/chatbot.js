@@ -173,19 +173,6 @@ window.marked = window.marked || {
         hardClampCaptions(wrap);
     }
 
-    // ========= transport resolution (WS by default; HTTP optional) =========
-    function resolveWs(baseOpt) {
-        const scheme = location.protocol === "https:" ? "wss" : "ws";
-        if (baseOpt) return baseOpt;
-        if (window.TTW_WS) return window.TTW_WS; // legacy hook from your old widget
-        return `${scheme}://${location.host}/ws`;
-    }
-
-    function resolveHttp() {
-        // default POST endpoint if you decide to go HTTP later
-        return "/api/chat";
-    }
-
     const pageRect = (el) => {
         const r = el.getBoundingClientRect();
         return {left: r.left + scrollX, top: r.top + scrollY, width: r.width, height: r.height};
@@ -290,7 +277,7 @@ window.marked = window.marked || {
         };
     }
 
-    // ========= Mount core =========
+    // ========= Mount core (HTTP only) =========
     function mount(root, opts) {
         if (!root) return {
             destroy() {
@@ -596,9 +583,8 @@ window.marked = window.marked || {
         updateTtsBtn();
         if (ttsSupported()) initVoicesOnce();
 
-        // Audio via backend TTS (optional). Point to /tts relative to site root.
-        const httpBase = location.origin;
-        const ttsEndpoint = httpBase + "/tts";
+        // Optional backend TTS fetch (disabled unless you build /tts)
+        const ttsEndpoint = location.origin + "/tts";
 
         async function speakAndGetDuration(text) {
             if (!tts.enabled) return {
@@ -634,13 +620,11 @@ window.marked = window.marked || {
                     } catch {
                     }
                     tts.audio = new Audio(url);
-                    tts.lastUrl = url;
                     tts.audio.onended = () => {
                         try {
                             URL.revokeObjectURL(url);
                         } catch {
                         }
-                        if (tts.lastUrl === url) tts.lastUrl = null;
                         resolve();
                     };
                     tts.audio.play().catch(() => resolve());
@@ -698,128 +682,20 @@ window.marked = window.marked || {
             }
         };
 
-        // ========= Transport (WS default, HTTP optional) =========
-        const MODE = (window.BAMBI_MODE || "ws").toLowerCase(); // "ws" | "http"
-        const wsUrl = resolveWs(opts?.endpoint);
-        const httpUrl = resolveHttp();
-
-        let ws = null, open = false, q = [];
-        let typingHintRemove = null;
-
+        // ========= HTTP transport =========
         async function httpSend(txt) {
             try {
-                const res = await fetch(httpUrl, {
+                const res = await fetch("/api/chat", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
                     body: JSON.stringify({q: txt, client_id: getSid()})
                 });
                 const data = await res.json().catch(() => ({reply: "" + txt}));
-                if (typingHintRemove) {
-                    try {
-                        typingHintRemove();
-                    } catch {
-                    }
-                    typingHintRemove = null;
-                }
                 if (data.reply) await renderAssistantReply(chat, data.reply);
                 if (Array.isArray(data.urls) && data.urls.length) addImageGallery(chat, data.urls);
             } catch (err) {
-                if (typingHintRemove) {
-                    try {
-                        typingHintRemove();
-                    } catch {
-                    }
-                    typingHintRemove = null;
-                }
                 await renderAssistantReply(chat, "Üzgünüm, bir sorun oluştu. Lütfen tekrar dener misiniz?");
                 dlog("HTTP error", err);
-            }
-        }
-
-        function connectWS() {
-            try {
-                const url = wsUrl + (wsUrl.includes("?") ? "&" : "?") + "client_id=" + encodeURIComponent(getSid());
-                dlog("WS connecting →", url);
-                ws = new WebSocket(url);
-                ws.addEventListener("open", () => {
-                    open = true;
-                    dlog("WS open");
-                    while (q.length) {
-                        try {
-                            ws.send(q.shift());
-                        } catch {
-                            break;
-                        }
-                    }
-                });
-                ws.addEventListener("message", onWSMsg);
-                ws.addEventListener("error", e => dlog("WS error", e));
-                ws.addEventListener("close", () => {
-                    open = false;
-                    dlog("WS close — retry in 1.2s");
-                    setTimeout(connectWS, 1200);
-                });
-            } catch (err) {
-                dlog("WS ctor error", err);
-                setTimeout(connectWS, 900);
-            }
-        }
-
-        function wsSendRaw(s) {
-            if (!s) return;
-            if (ws && open && ws.readyState === 1) {
-                try {
-                    ws.send(s);
-                    dlog("WS →", s);
-                } catch (e) {
-                    dlog("WS send err", e);
-                }
-            } else {
-                q.push(s);
-                dlog("WS queued", s);
-            }
-        }
-
-        async function onWSMsg(ev) {
-            dlog("WS ←", ev.data);
-            try {
-                if (typingHintRemove) {
-                    typingHintRemove();
-                    typingHintRemove = null;
-                }
-            } catch {
-            }
-            try {
-                const data = JSON.parse(ev.data);
-                if (data.reply) await renderAssistantReply(chat, data.reply);
-
-                let urls = data.urls;
-                if (typeof urls === "string") {
-                    try {
-                        urls = JSON.parse(urls);
-                    } catch {
-                    }
-                }
-                if (!Array.isArray(urls) && typeof data.reply === "string") {
-                    const m = data.reply.match(/"urls"\s*:\s*(\[[\s\S]*?\])/);
-                    if (m) {
-                        try {
-                            urls = JSON.parse(m[1]);
-                        } catch {
-                        }
-                    }
-                }
-                if (Array.isArray(urls) && urls.length) addImageGallery(chat, urls.map(u => {
-                    if (typeof u === "string") return u;
-                    const o = u || {};
-                    return {
-                        adres: o.adres || o.url || o.href || o.image || "",
-                        image: o.image || o.src || o.adres || "",
-                        title: o.title || o.name || o.caption || o.text || ""
-                    };
-                }));
-            } catch {
-                await renderAssistantReply(chat, ev.data);
             }
         }
 
@@ -827,9 +703,13 @@ window.marked = window.marked || {
             const txt = (input?.value || "").trim();
             if (!txt) return;
             addBubble(chat, txt, "user");
-            typingHintRemove?.();
-            typingHintRemove = showTyping(chat);
-            if (MODE === "http") httpSend(txt); else wsSendRaw(txt);
+            const removeTyping = showTyping(chat);
+            httpSend(txt).finally(() => {
+                try {
+                    removeTyping();
+                } catch {
+                }
+            });
             if (input) input.value = "";
         }
 
@@ -855,14 +735,10 @@ window.marked = window.marked || {
         });
         mo.observe(document.body, {attributes: true, attributeFilter: ["class"]});
 
-        if (MODE === "ws") connectWS();
-
         const first = (opts.initialText || "").trim();
         if (first) {
             addBubble(chat, first, "user");
-            typingHintRemove?.();
-            typingHintRemove = showTyping(chat);
-            MODE === "http" ? httpSend(first) : wsSendRaw(first);
+            httpSend(first);
         }
 
         return {
@@ -875,30 +751,14 @@ window.marked = window.marked || {
                     mo.disconnect();
                 } catch {
                 }
-                try {
-                    ttsStop();
-                } catch {
-                }
-                try {
-                    ws?.close();
-                } catch {
-                }
             }
         };
     }
 
-    // expose
-    window.TTWChatbot = {openModal, mount}; // keep legacy name so base.html stays valid (launcher). :contentReference[oaicite:4]{index=4}
-
+    // expose (kept name so your launcher in base.html continues to work) :contentReference[oaicite:4]{index=4}
+    window.TTWChatbot = {openModal, mount};
     try {
         window.dispatchEvent(new Event('bmb-ready'));
     } catch {
     }
-
-    // auto-init (if someone embeds inline)
-    document.addEventListener("DOMContentLoaded", () => {
-        document.querySelectorAll("[data-bmb-chat][data-autoinit]").forEach(root => mount(root, {}));
-    });
-    window.addEventListener("error", e => dlog("window error", e.message || e));
-    window.addEventListener("unhandledrejection", e => dlog("promise rejection", e.reason || e));
 })();

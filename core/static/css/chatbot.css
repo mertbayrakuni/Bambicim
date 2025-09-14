@@ -617,3 +617,30 @@ body.bmb-modal-open #miniChatCard {
     overflow: auto;
     white-space: pre-wrap;
 }
+
+/* Keep log scrollable and the input row stuck to bottom */
+.bmb-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.bmb-body .bmb-chatbot {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.bmb-log {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* lets it scroll */
+.bmb-row {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    border-top: 1px solid var(--bmb-line);
+    z-index: 2;
+}

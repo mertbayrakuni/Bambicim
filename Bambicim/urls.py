@@ -36,4 +36,7 @@ urlpatterns = [
     path("art/scene/<str:scene_key>/ensure", core_views.scene_art_ensure, name="scene_art_ensure"),
     path("art/scene/<str:scene_key>.webp", core_views.scene_art_image, name="scene_art_image"),
     path("art/ensure-all", core_views.scene_art_ensure_all, name="scene_art_ensure_all"),
+
+    # chatbot
+    path("api/chat", views.api_chat, name="api_chat"),
 ]
