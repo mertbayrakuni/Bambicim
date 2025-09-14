@@ -890,6 +890,11 @@ window.marked = window.marked || {
     // expose
     window.TTWChatbot = {openModal, mount}; // keep legacy name so base.html stays valid (launcher). :contentReference[oaicite:4]{index=4}
 
+    try {
+        window.dispatchEvent(new Event('bmb-ready'));
+    } catch {
+    }
+
     // auto-init (if someone embeds inline)
     document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll("[data-bmb-chat][data-autoinit]").forEach(root => mount(root, {}));

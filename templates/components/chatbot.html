@@ -1,8 +1,23 @@
 <!-- components/chatbot.html -->
 <button id="bambiChatLauncher" class="bambi-launcher" type="button">💬 Bambi</button>
 <script>
-    // open modal, grow-from the launcher (your JS builds the modal DOM)
-    document.getElementById('bambiChatLauncher')?.addEventListener('click', () => {
-        window.TTWChatbot?.openModal({animateFrom: '#bambiChatLauncher'});
-    });
+    (function bindBambi() {
+        const btn = document.getElementById('bambiChatLauncher');
+        if (!btn) return;
+
+        function open() {
+            if (window.TTWChatbot && window.TTWChatbot.openModal) {
+                window.TTWChatbot.openModal({animateFrom: '#bambiChatLauncher'});
+            } else {
+                console.warn('Bambi chat core not ready yet');
+            }
+        }
+
+        btn.addEventListener('click', open);
+
+        // If the core announces itself later, we’re ready.
+        window.addEventListener('bmb-ready', () => {
+            // no-op; listener already attached
+        });
+    })();
 </script>
