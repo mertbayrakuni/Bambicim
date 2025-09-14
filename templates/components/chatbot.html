@@ -1,0 +1,8 @@
+<!-- components/chatbot.html -->
+<button id="bambiChatLauncher" class="bambi-launcher" type="button">💬 Bambi</button>
+<script>
+    // open modal, grow-from the launcher (your JS builds the modal DOM)
+    document.getElementById('bambiChatLauncher')?.addEventListener('click', () => {
+        window.TTWChatbot?.openModal({animateFrom: '#bambiChatLauncher'});
+    });
+</script>

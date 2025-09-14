@@ -83,6 +83,7 @@ INSTALLED_APPS = [
     "accounts",
     "portfolio",
     "django.contrib.sitemaps",
+    "channels",
 ]
 
 MIDDLEWARE = [
@@ -243,3 +244,12 @@ EMAIL_TIMEOUT = 20
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
 LOGIN_URL = "login"
+
+# ASGI / Channels
+ASGI_APPLICATION = "Bambicim.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}

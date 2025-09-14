@@ -873,3 +873,147 @@ a {
 .scene-pixel {
     margin: 0 auto 12px;
 }
+
+.bambi-launcher {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 10005;
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-weight: 700;
+    background: linear-gradient(90deg, #ff6abf, #ff96d5);
+    color: #280017;
+    box-shadow: 0 10px 28px rgba(255, 105, 180, .35)
+}
+
+.bambi-launcher:hover {
+    transform: translateY(-1px)
+}
+
+@media (max-width: 640px) {
+    .bambi-launcher {
+        bottom: 12px;
+        right: 12px
+    }
+}
+
+/* === Bambi Pink overrides (non-destructive) === */
+:root {
+    --bambi-p1: #ff6abf;
+    --bambi-p2: #ff96d5;
+    --bambi-ink: #2a0017;
+    --bambi-soft: #fdf3f9;
+    --bambi-soft2: #ffe6f5;
+    --bambi-line: #ffd2ea;
+}
+
+/* header bar & chrome */
+.tw-head {
+    background: linear-gradient(90deg, var(--bambi-p1), var(--bambi-p2)) !important;
+    color: var(--bambi-ink) !important;
+    border-bottom: 1px solid var(--bambi-line) !important;
+}
+
+.tw-close {
+    background: rgba(0, 0, 0, .35)
+}
+
+/* keep legible on pink */
+
+/* bubbles */
+.ttw-b.u {
+    background: #ffe0f2 !important;
+    color: var(--bambi-ink) !important
+}
+
+.ttw-b.a {
+    background: #fff7fb !important;
+    color: #3a0e26 !important
+}
+
+/* typing indicator bubble */
+.ttw-b.ttw-typing {
+    background: var(--bambi-soft2) !important;
+    color: #7a2857 !important
+}
+
+.ttw-typing .dot {
+    background: #7a2857 !important
+}
+
+/* input focus ring */
+.ttw-inp:focus {
+    border-color: var(--bambi-p1) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--bambi-p1) 35%, transparent) !important;
+}
+
+/* send + tts toggle */
+.ttw-send {
+    background: var(--bambi-p1) !important
+}
+
+.ttw-send:hover {
+    background: #ff58b9 !important
+}
+
+.ttw-send:active {
+    background: #ff33aa !important
+}
+
+.tw-tts.on {
+    background: var(--bambi-p1) !important;
+    color: #fff !important
+}
+
+/* waves pill (recording) */
+.ttw-waves {
+    background: color-mix(in srgb, var(--bambi-p1) 8%, transparent) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bambi-p1) 22%, transparent),
+    0 4px 12px color-mix(in srgb, var(--bambi-p1) 10%, transparent) !important;
+}
+
+.ttw-waves::before {
+    content: 'Dinliyorum…';
+    color: var(--bambi-p1) !important
+}
+
+.ttw-waves .bar {
+    background: linear-gradient(to top,
+    color-mix(in srgb, var(--bambi-p1) 95%, white),
+    color-mix(in srgb, var(--bambi-p1) 45%, white)) !important;
+}
+
+/* gallery frame */
+.ttw-gallery .tile {
+    border-color: var(--bambi-line) !important
+}
+
+/* launcher pill */
+.bambi-launcher {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 10005;
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-weight: 700;
+    background: linear-gradient(90deg, var(--bambi-p1), var(--bambi-p2));
+    color: var(--bambi-ink);
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--bambi-p1) 35%, transparent);
+}
+
+.bambi-launcher:hover {
+    transform: translateY(-1px)
+}
+
+@media (max-width: 640px) {
+    .bambi-launcher {
+        right: 12px;
+        bottom: 12px
+    }
+}
