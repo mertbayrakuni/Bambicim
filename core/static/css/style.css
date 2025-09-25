@@ -1083,89 +1083,157 @@ a {
     }
 }
 
-/* === Chat popup layout (pin composer to bottom) === */
-.ttw-popup {
-    /* the modal body container */
-    display: flex;
-    flex-direction: column;
-    width: clamp(320px, 92vw, 780px);
-    height: min(72vh, 640px);
-    max-height: 90vh;
-    background: #fff;
-    border-radius: 14px;
-    overflow: hidden;
+/* === Bambi Chat modal (bmb-*) — keep input row pinned === */
+.bmb-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .35);
+    opacity: 0;
+    transition: opacity .18s ease;
+    z-index: 10000;
 }
 
-/* header stays natural at the top (your .tw-head) */
+.bmb-overlay.open {
+    opacity: 1;
+}
 
-.ttw-log {
-    /* scrollable message area */
+.bmb-panel {
+    position: fixed;
+    left: 50%;
+    top: 8vh;
+    transform: translateX(-50%);
+    width: clamp(320px, 92vw, 780px);
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    color: #2a0017;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+    transition: transform .18s ease, opacity .18s ease;
+    z-index: 10001;
+}
+
+/* header */
+.bmb-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: linear-gradient(90deg, var(--bambi-p1), var(--bambi-p2));
+    color: var(--bambi-ink);
+    border-bottom: 1px solid var(--bambi-line);
+}
+
+.bmb-head .bmb-tts, .bmb-head .bmb-close {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 10px;
+    cursor: pointer;
+    background: rgba(0, 0, 0, .15);
+    color: inherit;
+}
+
+/* body → chat column */
+.bmb-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    background: #fff;
+}
+
+.bmb-chat {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+/* scrollable log */
+.bmb-log {
     flex: 1 1 auto;
+    min-height: 120px;
     overflow: auto;
     padding: 14px 16px;
     background: #fff;
 }
 
-/* input row + buttons */
-.ttw-composer {
-    position: sticky; /* keeps it visible even if log is taller than popup */
-    bottom: 0;
-    background: #fff;
-    border-top: 1px solid var(--bambi-line, #ffd2ea);
-    padding: 12px;
-}
-
-.ttw-row {
+/* input row stays at the bottom because the parent is a flex column */
+.bmb-row {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: 10px;
+    padding: 12px;
+    border-top: 1px solid var(--bambi-line);
+    margin: 0;
+    background: #fff;
 }
 
-.ttw-inp {
+.bmb-inp {
     flex: 1 1 auto;
     min-height: 42px;
-    border: 1px solid var(--bambi-line, #ffd2ea);
-    border-radius: 999px;
     padding: 10px 14px;
+    outline: none;
+    border: 1px solid var(--bambi-line);
+    border-radius: 999px;
     background: #faf7fb;
     color: #2a0017;
-    outline: none;
 }
 
-.ttw-mic {
+.bmb-waves {
+    display: none;
+}
+
+/* becomes .on via JS when recording */
+.bmb-row.rec .bmb-waves {
+    display: block;
+}
+
+.bmb-mic {
     flex: 0 0 auto;
     width: 40px;
     height: 40px;
-    border-radius: 999px;
-    border: 1px solid var(--bambi-line, #ffd2ea);
-    background: #fff;
     display: grid;
     place-items: center;
+    border-radius: 999px;
+    border: 1px solid var(--bambi-line);
+    background: #fff;
     cursor: pointer;
 }
 
-.ttw-send {
-    flex: 0 0 auto;
+.bmb-btn {
     border: 0;
     border-radius: 999px;
     padding: 10px 16px;
     font-weight: 800;
-    background: var(--bambi-p1, #ff6abf);
-    color: var(--bambi-ink, #2a0017);
     cursor: pointer;
 }
 
+.bmb-send {
+    background: var(--bambi-p1);
+    color: var(--bambi-ink);
+}
+
+.bmb-send:hover {
+    filter: brightness(1.06);
+}
+
 @media (max-width: 640px) {
-    .ttw-popup {
+    .bmb-panel {
         width: 94vw;
-        height: min(78vh, 640px);
+        top: 6vh;
+        max-height: 88vh;
     }
 
-    .ttw-inp {
+    .bmb-inp {
         min-height: 40px;
     }
 
-    .ttw-send {
+    .bmb-btn {
         padding: 10px 14px;
     }
 }
+
