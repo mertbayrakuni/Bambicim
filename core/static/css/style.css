@@ -1017,3 +1017,69 @@ a {
         bottom: 12px
     }
 }
+
+@media (max-width: 640px) {
+    /* Make header two columns: brand | auth  (nav goes to row 2) */
+    .b-nav {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        padding: 12px 12px 0;
+        row-gap: 8px;
+    }
+
+    .b-nav .brand {
+        grid-column: 1 / 2;
+        justify-self: start;
+    }
+
+    .b-nav .auth {
+        grid-column: 2 / 3;
+        justify-self: end;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: nowrap; /* don’t break into a second line */
+    }
+
+    /* Put the main nav pills below, centered and wrapping nicely */
+    .b-nav nav.main-nav {
+        grid-column: 1 / -1;
+        order: 3;
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+    }
+
+    /* Keep the username in one line with ellipsis */
+    .b-nav .nav-user {
+        max-width: 100px; /* tune this */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Tighten button padding so both fit on one line */
+    .b-nav .pill,
+    .b-nav form button,
+    .b-nav .btn {
+        padding: 6px 10px;
+        border-radius: 10px;
+        font-size: .9rem;
+        font-weight: 800;
+    }
+
+    /* Hide the theme dots on tiny screens (you already do this) */
+    .theme-toggle {
+        display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .b-nav .nav-user .hi {
+        display: none;
+    }
+}
+
