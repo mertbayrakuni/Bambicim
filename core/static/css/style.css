@@ -1083,3 +1083,89 @@ a {
     }
 }
 
+/* === Chat popup layout (pin composer to bottom) === */
+.ttw-popup {
+    /* the modal body container */
+    display: flex;
+    flex-direction: column;
+    width: clamp(320px, 92vw, 780px);
+    height: min(72vh, 640px);
+    max-height: 90vh;
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+/* header stays natural at the top (your .tw-head) */
+
+.ttw-log {
+    /* scrollable message area */
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 14px 16px;
+    background: #fff;
+}
+
+/* input row + buttons */
+.ttw-composer {
+    position: sticky; /* keeps it visible even if log is taller than popup */
+    bottom: 0;
+    background: #fff;
+    border-top: 1px solid var(--bambi-line, #ffd2ea);
+    padding: 12px;
+}
+
+.ttw-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ttw-inp {
+    flex: 1 1 auto;
+    min-height: 42px;
+    border: 1px solid var(--bambi-line, #ffd2ea);
+    border-radius: 999px;
+    padding: 10px 14px;
+    background: #faf7fb;
+    color: #2a0017;
+    outline: none;
+}
+
+.ttw-mic {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--bambi-line, #ffd2ea);
+    background: #fff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+
+.ttw-send {
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-weight: 800;
+    background: var(--bambi-p1, #ff6abf);
+    color: var(--bambi-ink, #2a0017);
+    cursor: pointer;
+}
+
+@media (max-width: 640px) {
+    .ttw-popup {
+        width: 94vw;
+        height: min(78vh, 640px);
+    }
+
+    .ttw-inp {
+        min-height: 40px;
+    }
+
+    .ttw-send {
+        padding: 10px 14px;
+    }
+}

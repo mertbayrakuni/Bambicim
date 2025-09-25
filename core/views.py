@@ -1,5 +1,7 @@
 # core/views.py
+import json
 import logging
+import re
 
 from django.conf import settings
 from django.contrib import messages
@@ -10,16 +12,19 @@ from django.core.mail import EmailMessage
 from django.core.validators import validate_email
 from django.db.models import F
 from django.http import Http404, HttpResponse
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.html import strip_tags
 from django.views.decorators.cache import cache_control
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
 from utils.github import get_recent_public_repos_cached
 from .art import generate_pixel_art, run_in_thread, _prompt_for
+from .bot import reply_for
 from .models import Scene, Item, Inventory, ChoiceLog, Achievement, UserAchievement
 from .models import SceneArt
 
@@ -453,12 +458,6 @@ def scene_art_ensure_all(_request):
     return JsonResponse({"ok": True, "count": kicked, "keys": keys})
 
 
-# core/views.py
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json, re, random, datetime as dt
-
-
 @csrf_exempt
 def api_chat(request):
     if request.method != "POST":
@@ -468,25 +467,6 @@ def api_chat(request):
     except Exception:
         data = {}
     q = (data.get("q") or "").strip()
-    reply = simple_reply(q)
+    +    reply = reply_for(q, user_name=request.user.username if request.user.is_authenticated else None)
     # You can also return images like: {"urls": [{"image": "/static/img/..", "title": "…"}]}
     return JsonResponse({"reply": reply})
-
-
-def simple_reply(q: str) -> str:
-    if not q:
-        return "Merhaba! Ben Bambi 💖 Bugün sana nasıl yardımcı olabilirim?"
-    low = q.lower()
-    if any(w in low for w in ["merhaba", "selam", "hi", "hello"]):
-        return "Selam tatlım! 💕 Ne konuşmak istersin?"
-    if "saat" in low or "time" in low:
-        return f"Şu an saat {dt.datetime.now().strftime('%H:%M')}."
-    if "yardım" in low or "help" in low:
-        return "Kısa komutlar:\n\n• “hakkında”\n• herhangi bir soru 💗"
-    if re.search(r"\b(hakkında|about)\b", low):
-        return "Bambicim kişisel oyunlu alanım. Bugün basit cevaplar, yarın daha akıllı! ✨"
-    return random.choice([
-        "Anladım tatlım. Biraz daha açar mısın? 💞",
-        "Güzel soru! Birlikte çözelim mi? 💖",
-        "Hmm… Biraz daha detay verir misin?"
-    ])
