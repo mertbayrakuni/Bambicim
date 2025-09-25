@@ -462,11 +462,15 @@ def scene_art_ensure_all(_request):
 def api_chat(request):
     if request.method != "POST":
         return JsonResponse({"error": "POST only"}, status=405)
+
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
         data = {}
+
     q = (data.get("q") or "").strip()
-    +    reply = reply_for(q, user_name=request.user.username if request.user.is_authenticated else None)
-    # You can also return images like: {"urls": [{"image": "/static/img/..", "title": "…"}]}
+    reply = reply_for(
+        q,
+        user_name=request.user.username if request.user.is_authenticated else None
+    )
     return JsonResponse({"reply": reply})
