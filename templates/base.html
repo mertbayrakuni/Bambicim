@@ -70,9 +70,40 @@
 </main>
 
 {# ---------- Footer ---------- #}
-<footer class="b-container b-footer">
-    <span>© <span id="y"></span> Bambicim</span>
-    <span class="muted">Made with ✨ in Türkiye</span>
+<footer class="b-footer">
+    <div class="b-container f-grid">
+        <div class="f-brand">
+            <div class="logo">Bambicim</div>
+            <div class="muted">Made with ✨ in Türkiye</div>
+            <div class="muted">© <span id="y"></span> Bambicim</div>
+        </div>
+
+        <nav class="f-col">
+            <h4>Explore</h4>
+            <a href="{% url 'home' %}#work">Work</a>
+            <a href="{% url 'home' %}#game">Bambi Game</a>
+            <a href="{% url 'home' %}#contact">Let’s talk</a>
+            <a href="{% url 'sitemap_html' %}">Site map</a>
+        </nav>
+
+        <nav class="f-col">
+            <h4>Company</h4>
+            <a href="{% url 'about' %}">About</a>
+            <a href="{% url 'privacy' %}">Privacy</a>
+            <a href="{% url 'terms' %}">Terms</a>
+        </nav>
+
+        <nav class="f-col">
+            <h4>Account</h4>
+            {% if request.user.is_authenticated %}
+                <a href="{% url 'profile' %}">Profile</a>
+            {% else %}
+                <a href="{% url 'login' %}">Sign in</a>
+                <a href="{% url 'signup' %}">Sign up</a>
+            {% endif %}
+            <a href="mailto:ipek@bambicim.com">ipek@bambicim.com</a>
+        </nav>
+    </div>
 </footer>
 
 {# year + smooth scroll for home-page anchors #}

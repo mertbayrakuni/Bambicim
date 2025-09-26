@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Site Map — Bambicim{% endblock %}
+{% block content %}
+    <section class="b-container">
+        <h1 class="grad">Site Map</h1>
+        <ul>
+            <li><a href="{% url 'home' %}">Home</a></li>
+            <li><a href="{% url 'home' %}#work">Selected Work</a></li>
+            <li><a href="{% url 'home' %}#game">Bambi Game</a></li>
+            <li><a href="{% url 'home' %}#contact">Let’s talk</a></li>
+            <li><a href="{% url 'about' %}">About</a></li>
+            <li><a href="{% url 'privacy' %}">Privacy Policy</a></li>
+            <li><a href="{% url 'terms' %}">Terms & Conditions</a></li>
+            <li><a href="{% url 'login' %}">Sign in</a> / <a href="{% url 'signup' %}">Sign up</a></li>
+        </ul>
+    </section>
+{% endblock %}
