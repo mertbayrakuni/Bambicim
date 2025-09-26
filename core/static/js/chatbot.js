@@ -678,9 +678,21 @@ window.marked = window.marked || {
                     headers: {"Content-Type": "application/json"},
                     body: JSON.stringify({q: txt, client_id: getSid()})
                 });
-                const data = await res.json().catch(() => ({reply: "" + txt}));
-                if (data.reply) await renderAssistantReply(chat, data.reply);
-                if (Array.isArray(data.urls) && data.urls.length) addImageGallery(chat, data.urls);
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                let data = {};
+                try {
+                    data = await res.json();
+                } catch {
+                    data = {};
+                }
+                const reply = (data && typeof data.reply === "string") ? data.reply : "";
+                const urls = Array.isArray(data?.urls) ? data.urls : [];
+                if (reply) {
+                    await renderAssistantReply(chat, reply);
+                } else {
+                    await renderAssistantReply(chat, "Üzgünüm, bir aksaklık oldu. Birazdan tekrar dener misin?");
+                }
+                if (urls.length) addImageGallery(chat, urls);
             } catch (err) {
                 await renderAssistantReply(chat, "Üzgünüm, bir sorun oluştu. Lütfen tekrar dener misiniz?");
                 dlog("HTTP error", err);
