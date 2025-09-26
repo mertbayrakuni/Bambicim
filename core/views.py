@@ -11,6 +11,7 @@ from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
 from django.core.validators import validate_email
 from django.db.models import F
+from django.db.models import Sum
 from django.http import Http404, HttpResponse
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -163,6 +164,54 @@ BASE_ACHIEVEMENTS = [
     ("accessorized", "Accessorized", "🎀", Achievement.RULE_COLLECT_COUNT, "", 3, "Collect 3 total items."),
     ("hoarder", "Hoarder", "🧺", Achievement.RULE_COLLECT_COUNT, "", 5, "Collect 5 total items."),
 ]
+
+
+def get_user_inventory_rows(user):
+    """
+    Return a list like:
+    [{"slug":"crown","name":"Crown","emoji":"👑","qty":1}, ...]
+    """
+    from core.models import Inventory  # <- your real model
+    rows = (
+        Inventory.objects
+        .filter(user=user)
+        .select_related("item")
+        .values("item__slug", "item__name", "item__emoji")
+        .annotate(qty=Sum("qty"))
+        .order_by("item__slug")
+    )
+    out = []
+    for r in rows:
+        out.append({
+            "slug": r["item__slug"],
+            "name": r["item__name"],
+            "emoji": r["item__emoji"] or "",
+            "qty": r["qty"] or 0,
+        })
+    return out
+
+
+def get_user_achievements_rows(user):
+    """
+    Return a list like:
+    [{"slug":"first-step","name":"First Step","emoji":"✨"}, ...]
+    """
+    from core.models import UserAchievement  # <- your real pivot model
+    qs = (
+        UserAchievement.objects
+        .filter(user=user)
+        .select_related("achievement")
+        .values("achievement__slug", "achievement__name", "achievement__emoji")
+        .order_by("achievement__slug")
+    )
+    return [
+        {
+            "slug": r["achievement__slug"],
+            "name": r["achievement__name"],
+            "emoji": r["achievement__emoji"] or "",
+        }
+        for r in qs
+    ]
 
 
 def _ensure_achievements_seeded():
@@ -460,17 +509,23 @@ def scene_art_ensure_all(_request):
 
 @csrf_exempt
 def api_chat(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "POST only"}, status=405)
-
     try:
-        data = json.loads(request.body.decode("utf-8"))
-    except Exception:
-        data = {}
+        if request.method != "POST":
+            return JsonResponse({"error": "method_not_allowed"}, status=405)
+        data = json.loads(request.body or "{}")
+        q = (data.get("q") or "").strip()
+        if not q:
+            return JsonResponse({"error": "empty_query"}, status=400)
 
-    q = (data.get("q") or "").strip()
-    reply = reply_for(
-        q,
-        user_name=request.user.username if request.user.is_authenticated else None
-    )
-    return JsonResponse({"reply": reply})
+        # ---- optional: pass game context (inv + achievements) for smarter replies
+        ctx = {}
+        if request.user.is_authenticated:
+            ctx["inv"] = get_user_inventory_rows(request.user)  # see Step 3B
+            ctx["ach"] = get_user_achievements_rows(request.user)  # see Step 3B
+
+        text = reply_for(q, user_name=request.user.username if request.user.is_authenticated else None,
+                         context=ctx)
+        return JsonResponse({"reply": text})
+    except Exception as e:
+        # Never leak full trace to end-user but do give a short code
+        return JsonResponse({"error": "server_error"}, status=500)
