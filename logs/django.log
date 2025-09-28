@@ -1,0 +1,38 @@
+[INFO] 2025-08-24 10:58:31,243 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:00:02,287 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\accounts\views.py changed, reloading.
+[INFO] 2025-08-24 11:00:02,757 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:00:13,974 django.server - code 400, message Bad request version ('\x05\x14I¬£\x00p\x07ï°\x8cm\x00\x90\\í7é')
+[ERROR] 2025-08-24 11:00:13,974 django.server - You're accessing the development server over HTTPS, but it only supports HTTP.
+[INFO] 2025-08-24 11:00:14,237 django.server - code 400, message Bad request version ('\x01.½%Iy¯ÝÕ\x1bâos[Á3Ú\x93x:\x00')
+[ERROR] 2025-08-24 11:00:14,238 django.server - You're accessing the development server over HTTPS, but it only supports HTTP.
+[INFO] 2025-08-24 11:00:14,282 django.server - code 400, message Bad request version ('\x00\x12\x00\x10\x04\x03\x08\x04\x04\x01\x05\x03\x08\x05\x05\x01\x08\x06\x06\x01\x00')
+[ERROR] 2025-08-24 11:00:14,282 django.server - You're accessing the development server over HTTPS, but it only supports HTTP.
+[INFO] 2025-08-24 11:00:14,549 django.server - code 400, message Bad request version ('\x88\x10\x00ÐXÚ\x99\x9e$ÚD\x91Ó\x97ÙDûñ*\x05@C¹\x9a\x8fç[Ì\x18!ÃÜðY«')
+[ERROR] 2025-08-24 11:00:14,549 django.server - You're accessing the development server over HTTPS, but it only supports HTTP.
+[INFO] 2025-08-24 11:12:14,081 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\views.py changed, reloading.
+[INFO] 2025-08-24 11:12:14,536 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:12:30,226 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\views.py changed, reloading.
+[INFO] 2025-08-24 11:12:30,682 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:12:33,018 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\views.py changed, reloading.
+[INFO] 2025-08-24 11:12:33,412 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:18:11,923 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\admin.py changed, reloading.
+[INFO] 2025-08-24 11:18:12,343 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:26:40,751 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\admin.py changed, reloading.
+[INFO] 2025-08-24 11:26:41,207 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:26:46,674 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\admin.py changed, reloading.
+[INFO] 2025-08-24 11:26:47,061 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:37:06,537 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\models.py changed, reloading.
+[INFO] 2025-08-24 11:37:06,952 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:42:34,503 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\models.py changed, reloading.
+[INFO] 2025-08-24 11:42:34,967 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:45:29,706 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\admin.py changed, reloading.
+[INFO] 2025-08-24 11:45:30,123 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:45:45,692 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\views.py changed, reloading.
+[INFO] 2025-08-24 11:45:46,053 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:52:26,814 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\admin.py changed, reloading.
+[INFO] 2025-08-24 11:52:27,192 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:53:12,772 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:53:37,601 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\admin.py changed, reloading.
+[INFO] 2025-08-24 11:53:38,250 django.utils.autoreload - Watching for file changes with StatReloader
+[INFO] 2025-08-24 11:53:40,668 django.utils.autoreload - C:\Users\mertb\PycharmProjects\Bambicim\core\views.py changed, reloading.
+[INFO] 2025-08-24 11:53:41,046 django.utils.autoreload - Watching for file changes with StatReloader
