@@ -644,3 +644,95 @@ body.bmb-modal-open #miniChatCard {
     border-top: 1px solid var(--bmb-line);
     z-index: 2;
 }
+
+/* row layout tweak: keep the attach icon on the left */
+.bmb-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.bmb-clip {
+    border: 1px solid var(--bambi-line, #ffd2ea);
+    background: #fff;
+    border-radius: 999px;
+    padding: 10px 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+/* picked files “chips” area below input (wraps) */
+.bmb-picks {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.bmb-pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--bambi-line, #ffd2ea);
+    border-radius: 999px;
+    background: #fff7fb;
+    color: #2a0017;
+    font-size: .9rem;
+}
+
+.bmb-pick .ico {
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
+.bmb-pick .rm {
+    border: 0;
+    background: transparent;
+    color: #c0257a;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+/* assistant file bubble (non-image files) */
+.bmb-files {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.bmb-file-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 8px;
+    border: 1px solid var(--bambi-line, #ffd2ea);
+    border-radius: 12px;
+    background: #fff7fb;
+}
+
+.bmb-file-row .ico {
+    font-size: 1rem;
+}
+
+.bmb-file-row a {
+    font-weight: 700;
+    color: #2a0017;
+}
+
+/* tiny image preview grid for user’s selection (before send) */
+.bmb-previews {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 6px;
+}
+
+.bmb-previews img {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--bambi-line, #ffd2ea);
+}

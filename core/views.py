@@ -1,27 +1,34 @@
 # core/views.py
+import json
 import logging
+import os
 import re
+from uuid import uuid4
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
 from django.core.mail import EmailMessage
 from django.core.validators import validate_email
 from django.db.models import F
 from django.http import Http404
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.html import strip_tags
+from django.utils.text import get_valid_filename
 from django.views.decorators.cache import cache_control
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
 from utils.github import get_recent_public_repos_cached
 from .art import generate_pixel_art, run_in_thread, _prompt_for
-from .bot import reply_for
+from .bot import reply_for  # your bot
 from .models import Scene, Item, Inventory, ChoiceLog, Achievement, UserAchievement
 from .models import SceneArt
 
@@ -472,7 +479,6 @@ def scene_art_image(request, scene_key: str):
 
 
 # --- add near the other imports at top ---
-import os
 
 from django.views.decorators.http import require_GET
 
@@ -504,9 +510,8 @@ def scene_art_ensure_all(_request):
 
 
 # add imports near the top
-import json, logging
-from django.http import JsonResponse, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
+import logging
+from django.http import HttpResponse
 from django.db.models import Sum
 
 logger = logging.getLogger("django")
@@ -516,45 +521,60 @@ logger = logging.getLogger("django")
 def healthz(_): return HttpResponse("ok")
 
 
+def _safe_name(name: str) -> str:
+    base, ext = os.path.splitext(get_valid_filename(name or "file"))
+    return f"{base[:40]}{ext.lower()}"
+
+
+def _save_uploads(files):
+    saved = []
+    for f in files:
+        path = f"chat_uploads/{uuid4().hex}-{_safe_name(f.name)}"
+        saved_path = default_storage.save(path, f)
+        url = default_storage.url(saved_path)
+        saved.append({
+            "name": f.name,
+            "url": url,
+            "size": getattr(f, "size", 0),
+            "content_type": getattr(f, "content_type", "") or ""
+        })
+    return saved
+
+
 @csrf_exempt
 def api_chat(request):
     if request.method != "POST":
         return JsonResponse({"error": "method_not_allowed"}, status=405)
-    try:
-        payload = json.loads(request.body or "{}")
-    except Exception as e:
-        logger.exception("bad json")
-        return JsonResponse({"error": "bad_json"}, status=400)
-
-    q = (payload.get("q") or "").strip()
-    if not q:
-        return JsonResponse({"error": "empty_query"}, status=400)
-
-    # ---- collect optional game context, but never let it crash
-    ctx = {}
-    if request.user.is_authenticated:
-        try:
-            ctx["inv"] = get_user_inventory_rows(request.user)
-        except Exception as e:
-            logger.exception("inventory fetch failed")
-            ctx["inv"] = []
-        try:
-            ctx["ach"] = get_user_achievements_rows(request.user)
-        except Exception as e:
-            logger.exception("achievements fetch failed")
-            ctx["ach"] = []
 
     try:
-        text = reply_for(
-            q,
-            user_name=request.user.username if request.user.is_authenticated else None,
-            context=ctx,
-        )
-        return JsonResponse({"reply": text})
+        q = ""
+        files_meta = []
+        if request.content_type and "multipart/form-data" in request.content_type:
+            q = (request.POST.get("q") or "").strip()
+            up = request.FILES.getlist("files")
+            if up:
+                files_meta = _save_uploads(up)
+        else:
+            data = json.loads(request.body or "{}")
+            q = (data.get("q") or "").strip()
+
+        # Build the bot context (inventory / achievements if you have them)
+        ctx = {}
+        # ctx["inv"] = get_user_inventory_rows(request.user) if request.user.is_authenticated else []
+        # ctx["ach"] = get_user_achievements_rows(request.user) if request.user.is_authenticated else []
+        if files_meta:
+            ctx["attachments"] = files_meta
+
+        text = reply_for(q, user_name=request.user.username if request.user.is_authenticated else None,
+                         context=ctx)
+
+        # split image vs others for the frontend helpers
+        urls = [f["url"] for f in files_meta if (f.get("content_type") or "").startswith("image/")]
+        return JsonResponse({
+            "reply": text,
+            "urls": urls,
+            "files": files_meta,
+        })
     except Exception as e:
-        logger.exception("bot reply failed")
-        # return a helpful error payload instead of a blank 500
-        return JsonResponse(
-            {"error": "bot_error", "detail": str(e)[:160]},
-            status=500
-        )
+        # expose short reason to the client so your debug bubble shows it
+        return JsonResponse({"error": "bot_error", "detail": str(e)}, status=500)

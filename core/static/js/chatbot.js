@@ -66,37 +66,30 @@ window.marked = window.marked || {
         const root = document.createElement("div");
         root.innerHTML = html;
 
-        const LINK_RE_G = /((?:https?:\/\/|www\.)[^\s<>()]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
-        const isEmail = s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-        const isUrl = s => /^(?:https?:\/\/|www\.)/i.test(s);
+        const LINK_RE_G =
+            /((?:https?:\/\/|www\.)[^\s<>()]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
+        const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+        const isUrl = (s) => /^(?:https?:\/\/|www\.)/i.test(s);
 
-        function process(node) {
-            // only touch text nodes (and skip inside existing links/scripts/styles)
+        (function walk(node) {
             if (node.nodeType === 3) {
-                const text = node.nodeValue;
-                const parts = text.split(LINK_RE_G);
+                const parts = node.nodeValue.split(LINK_RE_G);
                 if (parts.length === 1) return;
-
                 const frag = document.createDocumentFragment();
                 for (let i = 0; i < parts.length; i++) {
                     let chunk = parts[i];
                     if (!chunk) continue;
-
-                    // if this piece is a link/email candidate, wrap it
                     if (LINK_RE_G.test(chunk)) {
-                        LINK_RE_G.lastIndex = 0; // reset global regex
-                        // strip trailing punctuation (common in prose)
-                        const m = chunk.match(/[),.;!?]+$/);
+                        LINK_RE_G.lastIndex = 0;
+                        const m = chunk.match(/[),.;!?]+$/); // trim trailing punct.
                         const trail = m ? m[0] : "";
                         if (trail) chunk = chunk.slice(0, -trail.length);
-
                         const a = document.createElement("a");
                         if (isEmail(chunk)) {
                             a.href = `mailto:${chunk}`;
                             a.textContent = chunk;
                         } else if (isUrl(chunk)) {
-                            const href = chunk.startsWith("www.") ? `https://${chunk}` : chunk;
-                            a.href = href;
+                            a.href = chunk.startsWith("www.") ? `https://${chunk}` : chunk;
                             a.textContent = chunk;
                         } else {
                             frag.appendChild(document.createTextNode(parts[i]));
@@ -106,43 +99,84 @@ window.marked = window.marked || {
                         a.rel = "noopener noreferrer";
                         frag.appendChild(a);
                         if (trail) frag.appendChild(document.createTextNode(trail));
-                    } else {
-                        frag.appendChild(document.createTextNode(chunk));
-                    }
+                    } else frag.appendChild(document.createTextNode(chunk));
                 }
                 node.parentNode.replaceChild(frag, node);
                 return;
             }
-
-            if (node.nodeType === 1 && node.nodeName !== "A" && node.nodeName !== "SCRIPT" && node.nodeName !== "STYLE") {
+            if (
+                node.nodeType === 1 &&
+                node.nodeName !== "A" &&
+                node.nodeName !== "SCRIPT" &&
+                node.nodeName !== "STYLE"
+            ) {
                 for (let c = node.firstChild; c;) {
                     const n = c.nextSibling;
-                    process(c);
+                    walk(c);
                     c = n;
                 }
             }
-        }
+        })(root);
 
-        process(root);
         return root.innerHTML;
     }
 
-    // ========= bubbles & typing =========
     function addBubble(chatEl, text, who) {
         if (!chatEl) return;
         const w = document.createElement("div");
         w.className = "bmb-b " + (who === "user" ? "u" : "a");
-
-        const raw = normalizeMd(text || "");
-        const html = window.marked.parse(raw);
+        const raw = (text || "")
+            .replace(/\r\n/g, "\n")
+            .replace(/\r/g, "\n")
+            .replace(/\\n/g, "\n");
+        const html =
+            window.marked && window.marked.parse
+                ? window.marked.parse(raw)
+                : raw
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/\n/g, "<br>");
         w.innerHTML = linkifyHTML(html);
-
         const ts = document.createElement("div");
         ts.className = "bmb-ts";
         ts.textContent = new Date().toLocaleTimeString();
         w.appendChild(ts);
-
         chatEl.appendChild(w);
+        chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    // Show non-image file list (assistant bubble)
+    function addFileList(chatEl, files) {
+        if (!chatEl || !files?.length) return;
+        const wrap = document.createElement("div");
+        wrap.className = "bmb-b a";
+        const box = document.createElement("div");
+        box.className = "bmb-files";
+        files.forEach((f) => {
+            const row = document.createElement("div");
+            row.className = "bmb-file-row";
+            const ico = document.createElement("div");
+            ico.className = "ico";
+            ico.textContent = "📄";
+            const a = document.createElement("a");
+            a.href = f.url;
+            a.target = "_blank";
+            a.rel = "noopener";
+            a.textContent = f.name || f.url;
+            const meta = document.createElement("small");
+            const kb = Math.round((f.size || 0) / 1024);
+            meta.textContent =
+                (f.content_type || "").split(";")[0] + (kb ? ` · ${kb} KB` : "");
+            row.append(ico, a, meta);
+            box.appendChild(row);
+        });
+        wrap.appendChild(box);
+        const ts = document.createElement("div");
+        ts.className = "bmb-ts";
+        ts.textContent = new Date().toLocaleTimeString();
+        wrap.appendChild(ts);
+        chatEl.appendChild(wrap);
         chatEl.scrollTop = chatEl.scrollHeight;
     }
 
@@ -277,7 +311,10 @@ window.marked = window.marked || {
           <header class="bmb-h"><h2>AI Chatbot</h2><div class="s">Size yardımcı olmak için buradayım</div></header>
           <div class="bmb-log" role="log" aria-live="polite"></div>
           <form class="bmb-row" autocomplete="off">
+            <button class="bmb-clip" type="button" title="Dosya ekle" aria-label="Dosya ekle">📎</button>
             <input class="bmb-inp" type="text" placeholder="Mesajınızı yazın..." aria-label="Mesajınızı yazın">
+            <div class="bmb-picks" aria-live="polite"></div>
+            <input class="bmb-file" type="file" accept="image/*,.pdf,.txt,.md,.doc,.docx,.ppt,.pptx,.csv" multiple hidden>
             <div class="bmb-waves" aria-hidden="true"></div>
             <button class="bmb-mic" type="button" id="bmbMic" aria-pressed="false" title="Sesle yaz"></button>
             <button class="bmb-btn bmb-send" type="button" id="bmbSend">Gönder</button>
@@ -383,6 +420,54 @@ window.marked = window.marked || {
         const okB = root.querySelector("#bmbOk");
         const cancelB = root.querySelector("#bmbCancel");
 
+        // NEW: attachments
+        const clip = root.querySelector(".bmb-clip");
+        const fileInput = root.querySelector(".bmb-file");
+        const picks = root.querySelector(".bmb-picks");
+
+        const fileIcon = (name, type) => {
+            if ((type || "").startsWith("image/")) return "🖼️";
+            if (/pdf$/i.test(name)) return "📕";
+            if (/\.(docx?|odt)$/i.test(name)) return "📘";
+            if (/\.(pptx?|odp)$/i.test(name)) return "📙";
+            if (/\.(csv|xls|xlsx)$/i.test(name)) return "📗";
+            if (/\.(md|txt)$/i.test(name)) return "📝";
+            return "📄";
+        };
+
+        function renderPicks() {
+            picks.innerHTML = "";
+            if (!fileInput?.files?.length) return;
+            const frag = document.createDocumentFragment();
+            [...fileInput.files].forEach((f, idx) => {
+                const chip = document.createElement("span");
+                chip.className = "bmb-pick";
+                const ico = document.createElement("span");
+                ico.className = "ico";
+                ico.textContent = fileIcon(f.name, f.type);
+                const nm = document.createElement("span");
+                nm.textContent = f.name;
+                const rm = document.createElement("button");
+                rm.className = "rm";
+                rm.type = "button";
+                rm.textContent = "×";
+                rm.onclick = () => {
+                    const dt = new DataTransfer();
+                    [...fileInput.files].forEach((ff, j) => {
+                        if (j !== idx) dt.items.add(ff);
+                    });
+                    fileInput.files = dt.files;
+                    renderPicks();
+                };
+                chip.append(ico, nm, rm);
+                frag.appendChild(chip);
+            });
+            picks.appendChild(frag);
+        }
+
+        clip?.addEventListener("click", () => fileInput?.click());
+        fileInput?.addEventListener("change", renderPicks);
+
         // ===== Voice (SR) + animated waves =====
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         let rec = null,
@@ -464,7 +549,8 @@ window.marked = window.marked || {
                 input.setAttribute("aria-label", "Dinliyorum…");
             } else {
                 input.classList.remove("is-voice");
-                input.placeholder = input.getAttribute("data-oldph") || "Mesajınızı yazın...";
+                input.placeholder =
+                    input.getAttribute("data-oldph") || "Mesajınızı yazın...";
                 input.setAttribute("aria-label", "Mesajınızı yazın");
             }
         }
@@ -684,7 +770,10 @@ window.marked = window.marked || {
             const pool = vs.filter((v) => (v.lang || "").toLowerCase().startsWith("tr"));
             const list = pool.length ? pool : vs;
             if (!tts.voice) tts.voice = pickVoice(tts.chosenName);
-            const idx = Math.max(0, list.findIndex((v) => tts.voice && v.name === tts.voice.name));
+            const idx = Math.max(
+                0,
+                list.findIndex((v) => tts.voice && v.name === tts.voice.name)
+            );
             const next = list[(idx + 1) % list.length];
             if (next) {
                 tts.voice = next;
@@ -701,30 +790,36 @@ window.marked = window.marked || {
             if (!tts.enabled)
                 return {
                     play: async () => {
-                    }, durationMs: 0
+                    },
+                    durationMs: 0,
                 };
             const clean = cleanForTTS(text || "");
-            if (!clean) return {
-                play: async () => {
-                }, durationMs: 0
-            };
+            if (!clean)
+                return {
+                    play: async () => {
+                    },
+                    durationMs: 0,
+                };
             try {
                 const res = await fetch(ttsEndpoint, {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
                     body: JSON.stringify({text: clean, provider: "polly", voice: "Burcu"}),
                 });
-                if (!res.ok) return {
-                    play: async () => {
-                    }, durationMs: 0
-                };
+                if (!res.ok)
+                    return {
+                        play: async () => {
+                        },
+                        durationMs: 0,
+                    };
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const probe = new Audio();
                 const durationMs = await new Promise((r) => {
                     probe.preload = "metadata";
                     probe.src = url;
-                    probe.onloadedmetadata = () => r(Math.max(0, (probe.duration || 0) * 1000));
+                    probe.onloadedmetadata = () =>
+                        r(Math.max(0, (probe.duration || 0) * 1000));
                     probe.onerror = () => r(0);
                 });
                 const play = () =>
@@ -748,16 +843,18 @@ window.marked = window.marked || {
             } catch {
                 return {
                     play: async () => {
-                    }, durationMs: 0
+                    },
+                    durationMs: 0,
                 };
             }
         }
 
         // ===== typewriter (synced with optional audio) =====
         function typeWriter(el, text, msPerChar = 16) {
-            return new Promise(res => {
+            return new Promise((res) => {
                 const full = normalizeMd(text || "");
-                let i = 0, len = full.length;
+                let i = 0,
+                    len = full.length;
                 const id = setInterval(() => {
                     i++;
                     el.innerHTML = window.marked.parse(full.slice(0, i));
@@ -799,14 +896,24 @@ window.marked = window.marked || {
             }
         };
 
-        // ===== HTTP transport only =====
-        async function httpSend(txt) {
+        // ===== HTTP transport (JSON or multipart when files are present) =====
+        async function httpSend(txt, files) {
             try {
-                const res = await fetch("/api/chat", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({q: txt, client_id: getSid()}),
-                });
+                let res;
+                if (files && files.length) {
+                    const fd = new FormData();
+                    fd.append("q", txt || "");
+                    fd.append("client_id", getSid());
+                    [...files].forEach((f) => fd.append("files", f, f.name));
+                    res = await fetch("/api/chat", {method: "POST", body: fd});
+                } else {
+                    res = await fetch("/api/chat", {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({q: txt, client_id: getSid()}),
+                    });
+                }
+
                 let data = null,
                     textBlob = "";
                 try {
@@ -827,13 +934,22 @@ window.marked = window.marked || {
                     dlog("HTTP error", res.status, textBlob.slice(0, 400));
                     return;
                 }
-                const reply = data && typeof data.reply === "string" ? data.reply : "";
-                const urls = Array.isArray(data?.urls) ? data.urls : [];
+                const reply = (data && typeof data.reply === "string") ? data.reply : "";
                 await renderAssistantReply(
                     chat,
                     reply || "Üzgünüm, bir aksaklık oldu. Birazdan tekrar dener misin?"
                 );
+
+                // images (gallery)
+                const urls = Array.isArray(data?.urls) ? data.urls : [];
                 if (urls.length) addImageGallery(chat, urls);
+
+                // non-image files (list)
+                const filesMeta = Array.isArray(data?.files) ? data.files : [];
+                const nonImages = filesMeta.filter(
+                    (f) => !(f.content_type || "").startsWith("image/")
+                );
+                if (nonImages.length) addFileList(chat, nonImages);
             } catch (err) {
                 await renderAssistantReply(
                     chat,
@@ -845,16 +961,51 @@ window.marked = window.marked || {
 
         function send() {
             const txt = (input?.value || "").trim();
-            if (!txt) return;
-            addBubble(chat, txt, "user");
+            const files = fileInput?.files || null;
+            if (!txt && (!files || files.length === 0)) return;
+
+            // Show user's message bubble
+            if (txt) addBubble(chat, txt, "user");
+
+            // Quick user-side image previews (before send)
+            if (files && files.length) {
+                const imgUrls = [...files]
+                    .filter((f) => f.type.startsWith("image/"))
+                    .map((f) => URL.createObjectURL(f));
+                if (imgUrls.length) {
+                    const pre = document.createElement("div");
+                    pre.className = "bmb-previews";
+                    imgUrls.forEach((u) => {
+                        const im = document.createElement("img");
+                        im.src = u;
+                        pre.appendChild(im);
+                    });
+                    const w = document.createElement("div");
+                    w.className = "bmb-b u";
+                    w.appendChild(pre);
+                    const ts = document.createElement("div");
+                    ts.className = "bmb-ts";
+                    ts.textContent = new Date().toLocaleTimeString();
+                    w.appendChild(ts);
+                    chat.appendChild(w);
+                    chat.scrollTop = chat.scrollHeight;
+                    setTimeout(() => imgUrls.forEach((u) => URL.revokeObjectURL(u)), 30000);
+                }
+            }
+
             const removeTyping = showTyping(chat);
-            httpSend(txt).finally(() => {
+            httpSend(txt, files).finally(() => {
                 try {
                     removeTyping();
                 } catch {
                 }
             });
+
             if (input) input.value = "";
+            if (fileInput) {
+                fileInput.value = "";
+                renderPicks();
+            }
         }
 
         form?.addEventListener("submit", (e) => {
