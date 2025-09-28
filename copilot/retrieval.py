@@ -1,177 +1,260 @@
-# copilot/retrieval.py  (new bits for dense / hybrid)
-
+# copilot/retrieval.py
 from __future__ import annotations
 
-import logging
 import os
-from typing import List, Dict, Tuple
+import re
+import time
+from dataclasses import dataclass
+from typing import List, Dict, Tuple, Optional
 
 import numpy as np
 
 try:
-    from sentence_transformers import SentenceTransformer
+    from rank_bm25 import BM25Okapi as BM25
 except Exception:
-    SentenceTransformer = None  # we handle this gracefully
+    BM25 = None  # rank-bm25 not available
 
-log = logging.getLogger(__name__)
+from django.conf import settings
+from .models import Paragraph
 
-# --- existing stuff you already have ---
-# - Doc/Para models loading into _paras
-# - your BM25 setup: _bm25, _tok, _highlight, etc.
-# - _build_index() that populates _paras and _bm25
-
-# --- NEW GLOBALS for dense ---
-_dense_model = None  # SentenceTransformer
-_para_embs: np.ndarray | None = None  # shape: (num_paras, dim)
-_retriever_mode = os.getenv("COPILOT_RETRIEVER", "hybrid").lower()  # 'hybrid' | 'dense' | 'bm25'
-_dense_weight = float(os.getenv("COPILOT_DENSE_WEIGHT", "0.65"))
-_emb_model_name = os.getenv("COPILOT_EMB_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+# ----------------------- knobs -----------------------
+RETRIEVER_MODE = (getattr(settings, "COPILOT_RETRIEVER", os.getenv("COPILOT_RETRIEVER", "hybrid")) or "hybrid").lower()
+LANG = (getattr(settings, "COPILOT_LANG", os.getenv("COPILOT_LANG", "tr")) or "tr").lower()
+MAX_DOCS = int(getattr(settings, "COPILOT_MAX_DOCS", os.getenv("COPILOT_MAX_DOCS", 60)) or 60)
 
 
-def _ensure_dense_model():
-    """Lazy-load the sentence-transformers model."""
-    global _dense_model
-    if _dense_model is None:
-        if SentenceTransformer is None:
-            raise RuntimeError(
-                "sentence-transformers not installed. "
-                "Add it to requirements.txt or choose COPILOT_RETRIEVER=bm25."
-            )
-        log.info("Loading embedding model: %s", _emb_model_name)
-        _dense_model = SentenceTransformer(_emb_model_name)
+# ----------------------- tiny types ------------------
+@dataclass
+class Para:
+    doc_id: int | str
+    title: str
+    url: str
+    text: str
 
 
-def _embed(texts: List[str]) -> np.ndarray:
-    """Return L2-normalized embeddings (np.float32)."""
-    _ensure_dense_model()
-    embs = _dense_model.encode(
-        texts,
-        show_progress_bar=False,
-        convert_to_numpy=True,
-        normalize_embeddings=True,  # cosine sim = dot product
-    ).astype(np.float32)
-    return embs
+# ----------------------- globals ---------------------
+_bm25: Optional[BM25] = None
+_paras: List[Para] = []
+_bm25_corpus_tokens: List[List[str]] = []
+_built_at: float = 0.0
+
+# dense glue (optional)
+_dense_available = False
+try:
+    from .dense import ensure_dense_index, dense_search  # optional module
+
+    _dense_available = True
+except Exception:
+    _dense_available = False
+
+# ----------------------- utils -----------------------
+_ws_re = re.compile(r"\s+")
+_tok_re_tr = re.compile(r"[^\wçğıöşüâîû]+", re.IGNORECASE)
+_tok_re_en = re.compile(r"[^\w]+", re.IGNORECASE)
 
 
-def _norm01(x: np.ndarray) -> np.ndarray:
-    """Min-max to [0,1] with small epsilon if flat."""
-    xmin = float(x.min()) if x.size else 0.0
-    xmax = float(x.max()) if x.size else 1.0
-    if xmax - xmin < 1e-9:
-        return np.zeros_like(x, dtype=np.float32)
-    return ((x - xmin) / (xmax - xmin)).astype(np.float32)
+def _tok(text: str) -> List[str]:
+    text = text.lower()
+    if LANG == "tr":
+        text = _tok_re_tr.sub(" ", text)
+    else:
+        text = _tok_re_en.sub(" ", text)
+    return [t for t in _ws_re.split(text) if t]
 
 
-def _dense_scores_for_query(q: str) -> np.ndarray:
-    """Cosine sims for q vs all paragraphs (requires _para_embs)."""
-    if _para_embs is None or not len(q.strip()):
-        return np.zeros(0, dtype=np.float32)
-    q_emb = _embed([q])[0]  # normalized
-    # cosine = dot because both are normalized
-    return (_para_embs @ q_emb).astype(np.float32)
+def _highlight(text: str, qtok: List[str], width: int = 210) -> str:
+    if not text:
+        return ""
+    lo = text[: width * 2]  # inspect a small window
+    # pick earliest match window
+    best = 0
+    pos = 0
+    tl = lo.lower()
+    for t in qtok[:6]:
+        i = tl.find(t)
+        if i >= 0:
+            score = max(1, len(t))
+            if score > best:
+                best = score
+                pos = i
+    start = max(0, pos - width // 2)
+    end = min(len(lo), start + width)
+    snippet = lo[start:end].strip()
+    if start > 0:
+        snippet = "… " + snippet
+    if end < len(text):
+        snippet = snippet + " …"
+    return snippet
 
 
-# hook dense embedding computation into your index builder
-# call this at the end of your existing _build_index() after _paras is ready
-def _ensure_dense_index():
-    """Compute paragraph embeddings if missing."""
-    global _para_embs
-    if _para_embs is not None:
-        return
-    if not _paras:
-        return
-    try:
-        texts = [p.text for p in _paras]
-        _para_embs = _embed(texts)  # shape (N, D)
-        log.info("Dense index built: %s paragraphs, dim=%s", _para_embs.shape[0], _para_embs.shape[1])
-    except Exception as e:
-        log.warning("Dense index build failed (using bm25 only): %s", e)
-        _para_embs = None
+# --- simple paragraph splitter (HTML-aware, dependency-free) ---
+_html_tag = re.compile(r"<[^>]+>")
 
 
-# If your current _build_index() is something like:
-# def _build_index():
-#     ... loads docs/paras ...
-#     ... builds _bm25 ...
-# Add this line at the end:
-#
-#     _ensure_dense_index()
-
-
-def search(q: str, k: int = 6) -> List[Dict]:
+def _split_paragraphs(html_or_text: str, max_len: int = 800) -> list[str]:
     """
-    Dense/BM25/Hybrid search over paragraphs; then merge by doc.
-    Returns: [{id,title,url,score,snippet}]
+    Split HTML/text into clean paragraph-ish chunks.
+    - Splits on </p>, <br>, or blank lines.
+    - Strips tags.
+    - Drops very short bits.
+    - Further splits long paragraphs on sentence/space boundaries.
     """
-    _build_index()  # your existing function (must fill _paras, _bm25)
-    if not _paras or not q.strip():
+    if not html_or_text:
         return []
 
-    # ---- prepare scores (dense and/or bm25) ----
-    dense_scores = None
-    bm25_scores = None
+    # 1) coarse split by HTML paragraph breaks or blank lines
+    raw_parts = re.split(r"(?:</p>|<br\s*/?>|\n\s*\n)+", html_or_text, flags=re.I)
 
-    if _retriever_mode in ("hybrid", "dense"):
-        _ensure_dense_index()
-        if _para_embs is not None:
-            dense_scores = _dense_scores_for_query(q)  # cosine in [-1..1]
-            # clamp to [0..1] (cos can be negative, but min-max below also handles it)
-            dense_scores = _norm01(dense_scores)
-        else:
-            # model missing or failed; fallback
-            if _retriever_mode == "dense":
-                return []
-            _retriever_mode = "bm25"
+    out: list[str] = []
+    for part in raw_parts:
+        # strip tags, normalize whitespace
+        txt = _html_tag.sub(" ", part)
+        txt = " ".join(txt.split())  # collapse whitespace
 
-    if _retriever_mode in ("hybrid", "bm25"):
-        if _bm25 is not None:
-            qtok = _tok(q)
-            bm25_scores = np.asarray(_bm25.get_scores(qtok), dtype=np.float32)
-            bm25_scores = _norm01(bm25_scores)
-        else:
-            if _retriever_mode == "bm25":
-                return []
-            # else rely on dense only
+        if len(txt) < 40:  # ignore very short fragments
+            continue
 
-    # ---- fuse scores ----
-    if _retriever_mode == "dense" and dense_scores is not None:
-        fused = dense_scores
-    elif _retriever_mode == "bm25" and bm25_scores is not None:
-        fused = bm25_scores
+        # 2) chunk very long bits
+        while len(txt) > max_len:
+            cut = txt.rfind(".", 0, max_len)
+            if cut <= 0:
+                cut = txt.rfind(" ", 0, max_len)
+                if cut <= 0:
+                    break
+            out.append(txt[: cut + 1].strip())
+            txt = txt[cut + 1:].strip()
+
+        if txt:
+            out.append(txt)
+
+    return out
+
+# ----------------------- index builder ----------------
+def _build_index(force: bool = False) -> None:
+    global _bm25, _paras, _bm25_corpus_tokens, _built_at
+
+    # quick cache (rebuild at most every 10 min unless forced)
+    if not force and _built_at and (time.time() - _built_at) < 600 and _paras:
+        return
+
+    qs = (
+        Paragraph.objects
+        .select_related("doc")
+        .order_by("doc_id", "order")
+    )
+
+    if MAX_DOCS > 0:
+        # cap by number of docs (not rows). we gather until MAX_DOCS distinct doc_ids.
+        seen = set()
+        rows = []
+        for p in qs.iterator(chunk_size=1000):
+            rows.append(p)
+            seen.add(p.doc_id)
+            if len(seen) >= MAX_DOCS and p.order >= 2:  # take first few paras per doc
+                # we still keep going until we pass first 2 paras of the last doc
+                break
     else:
-        # hybrid: weighted sum (dense dominates by default)
-        if dense_scores is None and bm25_scores is None:
-            return []
-        if dense_scores is None:
-            fused = bm25_scores
-        elif bm25_scores is None:
-            fused = dense_scores
+        rows = list(qs)
+
+    _paras = [
+        Para(
+            doc_id=p.doc_id,
+            title=p.title or (p.doc.title if hasattr(p.doc, "title") else ""),
+            url=p.url or (p.doc.url if hasattr(p.doc, "url") else ""),
+            text=p.text or "",
+        )
+        for p in rows
+        if (p.text or "").strip()
+    ]
+
+    _bm25 = None
+    _bm25_corpus_tokens = []
+    if BM25 is not None and _paras:
+        _bm25_corpus_tokens = [_tok(p.text) for p in _paras]
+        _bm25 = BM25(_bm25_corpus_tokens)
+
+    _built_at = time.time()
+
+
+# ----------------------- public search ----------------
+def search(q: str, k: int = 6) -> List[Dict]:
+    """
+    Returns list[{id,title,url,score,snippet}]
+    - bm25 only, dense only, or hybrid (weighted merge).
+    - All fall back gracefully if a component is missing.
+    """
+    _build_index()
+    if not q or not q.strip():
+        return []
+
+    qtok = _tok(q)
+
+    # --- BM25 part (optional) ---
+    bm25_scores = None
+    if _bm25 is not None:
+        bm25_scores = np.asarray(_bm25.get_scores(qtok), dtype=np.float32)
+        if bm25_scores.size:
+            # normalize to [0,1] to blend with dense
+            m = float(bm25_scores.max())
+            if m > 0:
+                bm25_scores = bm25_scores / m
         else:
-            fused = (_dense_weight * dense_scores) + ((1.0 - _dense_weight) * bm25_scores)
+            bm25_scores = None
 
-    # ---- pick top paragraphs then merge by doc (same as your old logic) ----
-    k_paras = max(k * 2, 8)
-    ranked = list(zip(range(len(_paras)), fused.tolist()))
-    ranked.sort(key=lambda x: x[1], reverse=True)
-    ranked = ranked[:k_paras]
+    # --- Dense part (optional) ---
+    dense_scores = None
+    if _dense_available and RETRIEVER_MODE in ("dense", "hybrid"):
+        try:
+            dense_scores = dense_search(q, _paras)  # returns np.array of shape [N]
+        except Exception:
+            dense_scores = None
 
-    by_doc: Dict[str, List[Tuple[float, Para]]] = {}
-    for idx, sc in ranked:
-        para = _paras[idx]
-        by_doc.setdefault(para.doc_id, []).append((float(sc), para))
+    # choose mode
+    mode = RETRIEVER_MODE
+    if mode == "dense" and dense_scores is None:
+        mode = "bm25"
+    if mode in ("hybrid",) and dense_scores is None:
+        mode = "bm25"
+    if mode == "bm25" and (_bm25 is None or bm25_scores is None):
+        # absolutely nothing available
+        return []
+
+    # final score
+    if mode == "bm25":
+        final = bm25_scores
+    elif mode == "dense":
+        final = dense_scores
+    else:  # hybrid
+        # simple blend; tune as you wish
+        w_bm25 = 0.45
+        w_dense = 0.55
+        if bm25_scores is None:
+            final = dense_scores
+        elif dense_scores is None:
+            final = bm25_scores
+        else:
+            final = w_bm25 * bm25_scores + w_dense * dense_scores
+
+    # rank & group by doc
+    ranked = np.argsort(-final)[: max(k * 4, 12)]
+    by_doc: Dict[str, List[Tuple[float, int]]] = {}
+    for idx in ranked:
+        sc = float(final[idx])
+        para = _paras[int(idx)]
+        by_doc.setdefault(str(para.doc_id), []).append((sc, int(idx)))
 
     results: List[Dict] = []
-    # order docs by sum of their paragraph scores
+    # order docs by total score
     doc_order = sorted(by_doc.items(), key=lambda x: sum(s for s, _ in x[1]), reverse=True)[:k]
     for doc_id, items in doc_order:
-        sc, best_para = max(items, key=lambda x: x[0])
-        # if you want highlight to use query tokens, build them only when needed
-        snippet = _highlight(best_para.text, _tok(q))
+        sc, best_idx = max(items, key=lambda x: x[0])
+        p = _paras[best_idx]
+        snippet = _highlight(p.text, qtok)
         results.append({
             "id": doc_id,
-            "title": best_para.title or best_para.url,
-            "url": best_para.url,
-            "score": round(float(sc), 3),
+            "title": p.title or p.url,
+            "url": p.url,
+            "score": round(sc, 3),
             "snippet": snippet,
         })
     return results

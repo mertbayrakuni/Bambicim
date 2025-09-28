@@ -1,102 +1,106 @@
 # copilot/dense.py
 from __future__ import annotations
-import os, time, numpy as np
-from typing import List, Dict
-from dataclasses import dataclass
-from django.conf import settings
-from sentence_transformers import SentenceTransformer
+
+import os
+import numpy as np
+
 try:
     import faiss  # type: ignore
 except Exception:
-    faiss = None  # graceful fallback
+    faiss = None  # optional
 
-from .models import Doc
-from .retrieval import _split_paragraphs, _highlight, _tok
+try:
+    from sentence_transformers import SentenceTransformer
+except Exception:
+    SentenceTransformer = None  # optional
 
-MODEL_NAME = os.getenv("COPILOT_EMBED_MODEL",
-                       "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+from django.conf import settings
+from typing import List, Tuple
+from dataclasses import dataclass
 
+# shared tiny struct from retrieval (duplicated type hint only)
 @dataclass
-class Row:
-    id: str
-    url: str
+class Para:
+    doc_id: int | str
     title: str
+    url: str
     text: str
 
-_model: SentenceTransformer | None = None
-_index = None      # FAISS index
-_rows: List[Row] = []
-_built_at = 0.0
+MODEL_NAME = os.getenv("COPILOT_DENSE_MODEL",
+                       getattr(settings, "COPILOT_DENSE_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"))
 
-def _embed(texts: List[str]) -> np.ndarray:
+# globals
+_model = None
+_index = None
+_vecs: np.ndarray | None = None
+_built_for_n = -1
+
+def _load_model():
     global _model
     if _model is None:
+        if SentenceTransformer is None:
+            raise RuntimeError("sentence-transformers is not installed")
         _model = SentenceTransformer(MODEL_NAME)
-    vecs = _model.encode(texts, show_progress_bar=False, normalize_embeddings=True)
-    return np.asarray(vecs, dtype=np.float32)
 
-def build(force=False):
-    """Build a paragraph-level dense index in memory."""
-    global _index, _rows, _built_at
-    if not force and time.time() - _built_at < 60:
-        return
-    _rows = []
-    docs = Doc.objects.order_by("-updated_at")[: settings.COPILOT_MAX_DOCS]
-    paras: List[str] = []
-    for d in docs:
-        for p in _split_paragraphs(d.text or (d.snippet or "")):
-            if len(p) < 40:  # ignore trivial
-                continue
-            _rows.append(Row(d.id, d.url or "", d.title or "", p))
-            paras.append(p)
+def _embed(texts: List[str]) -> np.ndarray:
+    _load_model()
+    em = _model.encode(texts, batch_size=64, show_progress_bar=False, convert_to_numpy=True, normalize_embeddings=True)
+    # ensure float32 for faiss/numpy math
+    if em.dtype != np.float32:
+        em = em.astype(np.float32)
+    return em
 
-    if not paras:
+def ensure_dense_index(paras: List[Para]) -> Tuple[np.ndarray, object | None]:
+    """
+    Build (or reuse) dense vectors and FAISS index if available.
+    Returns (vecs, index_or_None)
+    """
+    global _index, _vecs, _built_for_n
+    if _vecs is not None and _built_for_n == len(paras):
+        return _vecs, _index
+
+    texts = [p.text for p in paras]
+    if not texts:
+        _vecs, _index = None, None
+        _built_for_n = 0
+        return _vecs, _index
+
+    _vecs = _embed(texts)
+    _built_for_n = len(paras)
+
+    if faiss is not None:
+        dim = _vecs.shape[1]
+        _index = faiss.IndexFlatIP(dim)  # cosine since we normalize
+        _index.add(_vecs)
+    else:
         _index = None
-        _built_at = time.time()
-        return
+    return _vecs, _index
 
-    X = _embed(paras)
+def dense_search(query: str, paras: List[Para]) -> np.ndarray:
+    """
+    Returns a numpy array of scores aligned with `paras`.
+    Uses FAISS if available, else pure numpy cosine.
+    """
+    if SentenceTransformer is None:
+        raise RuntimeError("sentence-transformers is not installed")
 
-    if faiss is None:
-        # light fallback: brute cosine in numpy
-        _index = ("brute", X / (np.linalg.norm(X, axis=1, keepdims=True) + 1e-12))
+    vecs, index = ensure_dense_index(paras)
+    if vecs is None:
+        return np.zeros((0,), dtype=np.float32)
+
+    qv = _embed([query])[0:1]  # (1, dim)
+
+    if index is not None:
+        # FAISS inner product (cosine, because embeddings are normalized)
+        D, _ = index.search(qv, k=vecs.shape[0])
+        # FAISS returns topK only; we need a full vector aligned by row.
+        # Recompute quickly as cosine to get dense vector.
+        scores = (vecs @ qv.T).ravel()
     else:
-        dim = X.shape[1]
-        _index = faiss.IndexFlatIP(dim)
-        _index.add(X)
-    _built_at = time.time()
+        scores = (vecs @ qv.T).ravel()
 
-def search_dense(query: str, k=6) -> List[Dict]:
-    build()
-    if _index is None or not query.strip():
-        return []
-
-    qv = _embed([query])
-    if faiss is None and isinstance(_index, tuple) and _index[0] == "brute":
-        X = _index[1]
-        sims = (qv @ X.T).ravel()
-        idx = sims.argsort()[::-1][: max(k*2, 8)]
-        scores = sims[idx]
-    else:
-        scores, idx = _index.search(qv, max(k*2, 8))  # type: ignore
-        scores, idx = scores[0], idx[0]
-
-    seen = set()
-    out: List[Dict] = []
-    for sc, i in sorted(zip(scores, idx), key=lambda x: float(x[0]), reverse=True):
-        if i < 0:  # faiss may return -1 if empty
-            continue
-        r = _rows[int(i)]
-        if r.id in seen:
-            continue
-        seen.add(r.id)
-        out.append({
-            "id": r.id,
-            "title": r.title or r.url,
-            "url": r.url,
-            "score": float(sc),
-            "snippet": _highlight(r.text, _tok(query)),
-        })
-        if len(out) >= k:
-            break
-    return out
+    # scale to [0,1]
+    mx = float(scores.max()) if scores.size else 0.0
+    if mx > 0:
+        scores = scores / mx
+    return scores.astype(np.float32)

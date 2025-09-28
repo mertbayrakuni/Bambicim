@@ -171,9 +171,11 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # feature flag (optional)
 BAMBI_COPILOT_ENABLED = True
-COPILOT_LANG = os.getenv("COPILOT_LANG", "tr")  # "tr" or "en"
-COPILOT_TONE = os.getenv("COPILOT_TONE", "playful")  # "neutral" | "playful"
+COPILOT_LANG = os.getenv("COPILOT_LANG", "tr")
+COPILOT_TONE = os.getenv("COPILOT_TONE", "neutral")    # "neutral" | "playful"
 COPILOT_MAX_DOCS = int(os.getenv("COPILOT_MAX_DOCS", 60))
+COPILOT_RETRIEVER = os.getenv("COPILOT_RETRIEVER", "hybrid")  # "bm25" | "dense" | "hybrid"
+COPILOT_DENSE_MODEL = os.getenv("COPILOT_DENSE_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 if not DEBUG:
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 

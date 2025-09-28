@@ -11,7 +11,6 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import Conversation, Message, Attachment
-from .retrieval import answer as rag_answer
 from .retrieval import search as rsearch
 
 

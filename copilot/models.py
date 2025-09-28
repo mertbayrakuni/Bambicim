@@ -86,3 +86,26 @@ class Doc(models.Model):
         super().save(*a, **kw)
 
     def __str__(self): return self.title or self.slug or self.url or self.id
+
+
+# copilot/models.py (append)
+
+class Paragraph(models.Model):
+    """
+    A small chunk of text from a Doc (used for retrieval).
+    Keep it tiny (1–3 sentences) for better recall.
+    """
+    doc = models.ForeignKey("copilot.Doc", on_delete=models.CASCADE, related_name="paragraphs")
+    order = models.PositiveIntegerField(default=0, db_index=True)
+    text = models.TextField()
+    # denormalized for fast render (optional but handy)
+    title = models.CharField(max_length=300, blank=True, default="")
+    url = models.URLField(max_length=800, blank=True, default="")
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["doc", "order"]),
+        ]
+
+    def __str__(self):
+        return f"{self.doc_id}#{self.order}"
