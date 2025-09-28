@@ -649,3 +649,30 @@ body.bmb-modal-open {
     overflow: auto;
     white-space: pre-wrap;
 }
+
+/* keep input controls on one line */
+.bmb-row {
+    display: grid;
+    grid-template-columns:auto 1fr auto auto auto; /* clip | input | mic | send | ok/cancel */
+    gap: 8px;
+    align-items: center;
+}
+
+/* file chips line: only show when there are picks, and sit on its own row */
+.bmb-picks {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+/* the important part: do NOT render an empty row */
+.bmb-picks:empty {
+    display: none;
+}
+
+/* make sure the hidden file input never participates in layout */
+.bmb-file[hidden] {
+    display: none !important;
+}

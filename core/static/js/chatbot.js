@@ -434,16 +434,27 @@ window.marked = window.marked || {
         };
 
         function renderPicks() {
-            if (!picks) return;
             picks.innerHTML = "";
-            if (!fileInput?.files?.length) return;
+            const files = fileInput?.files ? [...fileInput.files] : [];
+            if (!files.length) {
+                // nothing selected → ensure the row disappears
+                picks.classList.remove("has-picks"); // optional helper class
+                return;
+            }
+            picks.classList.add("has-picks");
+
             const frag = document.createDocumentFragment();
-            [...fileInput.files].forEach((f, idx) => {
+            files.forEach((f, idx) => {
                 const chip = document.createElement("span");
                 chip.className = "bmb-pick";
                 const ico = document.createElement("span");
                 ico.className = "ico";
-                ico.textContent = fileIcon(f.name, f.type);
+                ico.textContent = (/^image\//.test(f.type) ? "🖼️" :
+                    /\.pdf$/i.test(f.name) ? "📕" :
+                        /\.(docx?|odt)$/i.test(f.name) ? "📘" :
+                            /\.(pptx?|odp)$/i.test(f.name) ? "📙" :
+                                /\.(csv|xlsx?|tsv)$/i.test(f.name) ? "📗" :
+                                    /\.(md|txt)$/i.test(f.name) ? "📝" : "📄");
                 const nm = document.createElement("span");
                 nm.textContent = f.name;
                 const rm = document.createElement("button");
@@ -452,9 +463,7 @@ window.marked = window.marked || {
                 rm.textContent = "×";
                 rm.onclick = () => {
                     const dt = new DataTransfer();
-                    [...fileInput.files].forEach((ff, j) => {
-                        if (j !== idx) dt.items.add(ff);
-                    });
+                    [...fileInput.files].forEach((ff, j) => j !== idx && dt.items.add(ff));
                     fileInput.files = dt.files;
                     renderPicks();
                 };
