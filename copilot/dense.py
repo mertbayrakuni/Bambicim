@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import json
-import numpy as np
 import os
 from pathlib import Path
 
+import numpy as np
 from sentence_transformers import SentenceTransformer
 
 try:
@@ -47,3 +47,13 @@ def search_dense(query: str, k: int = 5):
         topk = sims.argsort()[-k:][::-1]
         hits = [(_corpus[i], float(sims[i])) for i in topk]
     return hits
+
+
+# dense.py — add at bottom next to search_dense()
+def reload_index():
+    """Hot-reload model/index on the next query."""
+    global _model, _index, _corpus, _vecs
+    _index = None
+    _corpus = None
+    _vecs = None
+    # keep _model so we don't reload weights unless you change env var

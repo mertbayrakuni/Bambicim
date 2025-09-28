@@ -1,13 +1,21 @@
 # core/bot.py — Bambi persona · Markdown native · files/inventory aware
 from __future__ import annotations
 
+import datetime as _dt
+# stdlib
 import datetime as dt
+import os
 import random
 import re
+import threading
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import unicodedata
+# django mgmt hooks for reindex
+from django.core.management import call_command
 
+from copilot.dense import reload_index  # hot-reload after (re)building index
+# our retrieval
 from copilot.retrieval import hybrid_search
 
 # --------------------------------------------------------------------------------------
@@ -26,6 +34,74 @@ LINKS = {
     "privacy": f"{BASE}/privacy/",
     "terms": f"{BASE}/terms/",
 }
+
+
+# --------------------------------------------------------------------------------------
+# Admin & reindex plumbing
+# --------------------------------------------------------------------------------------
+
+def _is_admin(user_name: str) -> bool:
+    admins = {u.strip().lower() for u in os.getenv("COPILOT_ADMIN_USERS", "").split(",") if u.strip()}
+    # If no env set, allow everyone (handy on dev). Set env in prod.
+    return not admins or (user_name or "").strip().lower() in admins
+
+
+_REINDEX = {"running": False, "started": None, "ended": None, "error": None, "last_ok": None}
+
+
+def _reindex_worker(paths: List[str], base: str, alt_base: Optional[str], model_path: str, out_dir: str):
+    _REINDEX.update({"running": True, "started": _dt.datetime.utcnow(), "ended": None, "error": None})
+    try:
+        # 1) crawl/index pages into Doc
+        call_command(
+            "copilot_index",
+            base=base,
+            paths=paths,
+            ignore_errors=True,
+            alt_base=(alt_base or None),
+        )
+        # 2) encode paragraphs and write dense index
+        call_command(
+            "build_dense_index",
+            model_path=model_path,
+            out_dir=out_dir,
+        )
+        # 3) hot-reload for next query
+        reload_index()
+        _REINDEX.update({"last_ok": _dt.datetime.utcnow()})
+    except Exception as e:
+        _REINDEX["error"] = str(e)
+    finally:
+        _REINDEX.update({"running": False, "ended": _dt.datetime.utcnow()})
+
+
+def _kick_reindex(argline: str) -> str:
+    """
+    Start background reindex.
+    Allow overrides in chat: /reindex base=https://... alt=http://... paths="/ /#work /#game"
+    """
+    base = os.getenv("COPILOT_BASE", "https://bambicim.com")
+    alt = os.getenv("COPILOT_ALT_BASE", "")
+    paths = os.getenv("COPILOT_INDEX_PATHS", "/ /#work /#game /#contact").split()
+
+    for tok in (argline or "").split():
+        if tok.startswith("base="):
+            base = tok.split("=", 1)[1]
+        elif tok.startswith("alt="):
+            alt = tok.split("=", 1)[1]
+        elif tok.startswith("paths="):
+            val = tok.split("=", 1)[1].strip().strip('"').strip("'")
+            paths = val.split()
+
+    model_path = os.getenv("COPILOT_EMBED_MODEL", "models/copilot-embed")
+    out_dir = os.getenv("COPILOT_INDEX_DIR", "copilot_index")
+
+    if _REINDEX["running"]:
+        return "A reindex is already running. Try `/reindex status`."
+
+    th = threading.Thread(target=_reindex_worker, args=(paths, base, alt, model_path, out_dir), daemon=True)
+    th.start()
+    return f"Started reindex with base={base} paths={paths}. I’ll update the index and hot-reload."
 
 
 # --------------------------------------------------------------------------------------
@@ -77,9 +153,7 @@ _TR_CHARS = "ıİşŞğĞçÇöÖüÜ"
 _TR_HINTS = {"merhaba", "selam", "giriş", "kayıt", "oyun", "tema", "envanter", "profil", "iletisim", "iletişim", "hata"}
 _EN_HINTS = {"hi", "hello", "login", "signup", "game", "theme", "inventory", "profile", "contact", "work", "error"}
 
-# translate() requires 1-char keys → use ord()
 _TRANSLATE_TABLE = {
-    # smart quotes / dashes / spaces
     ord("’"): "'",
     ord("‘"): "'",
     ord("“"): '"',
@@ -89,21 +163,13 @@ _TRANSLATE_TABLE = {
     ord("…"): "...",
     ord("\u00A0"): " ",  # NBSP
     ord("\u200B"): "",  # ZWSP
-
     # Turkish letters → ASCII-ish for intent matching
-    ord("İ"): "i",
-    ord("I"): "i",  # only for matching; we don't display this back
-    ord("ı"): "i",
-    ord("Ş"): "s",
-    ord("ş"): "s",
-    ord("Ğ"): "g",
-    ord("ğ"): "g",
-    ord("Ç"): "c",
-    ord("ç"): "c",
-    ord("Ö"): "o",
-    ord("ö"): "o",
-    ord("Ü"): "u",
-    ord("ü"): "u",
+    ord("İ"): "i", ord("I"): "i", ord("ı"): "i",
+    ord("Ş"): "s", ord("ş"): "s",
+    ord("Ğ"): "g", ord("ğ"): "g",
+    ord("Ç"): "c", ord("ç"): "c",
+    ord("Ö"): "o", ord("ö"): "o",
+    ord("Ü"): "u", ord("ü"): "u",
 }
 
 
@@ -184,7 +250,7 @@ def _ask(lang: str) -> str:
 
 
 # --------------------------------------------------------------------------------------
-# Small helpers
+# Markdown helpers
 # --------------------------------------------------------------------------------------
 
 def words_rx(ws: Iterable[str]) -> re.Pattern:
@@ -213,7 +279,6 @@ def _wrap_steps(*paras: str) -> str:
 # --------------------------------------------------------------------------------------
 
 def _fmt_items(items: Sequence[Union[dict, tuple]], lang: str) -> str:
-    # items: list of dicts/tuples -> render “emoji name × qty”
     out: List[str] = []
     for r in list(items or [])[:6]:
         if isinstance(r, dict):
@@ -253,10 +318,7 @@ def _fmt_achievements(ach: Sequence[Union[dict, str]], lang: str) -> str:
 
 
 # --------------------------------------------------------------------------------------
-# File understanding (lightweight, backend passes `context["files_in"]`)
-# Each file dict can include:
-#   name, size, content_type, text (optional extracted), url (optional), is_image (bool)
-# The view that handles uploads can fill these. We only analyze/summarize.
+# File understanding helpers (summaries, TODO, etc.)
 # --------------------------------------------------------------------------------------
 
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
@@ -318,18 +380,10 @@ def _summarize_text_block(text: str, lang: str) -> str:
 
 
 def _summarize_files(files: Sequence[Dict[str, Any]], lang: str) -> str:
-    """
-    Produce a markdown summary of files user attached.
-    Expect each dict to have: name, size, content_type, text?, url?, is_image?
-    """
     if not files:
         return ""
-
     lines: List[str] = []
-    if lang == "en":
-        lines.append("**Files received**:")
-    else:
-        lines.append("**Dosyalar alındı**:")
+    lines.append("**Files received**:" if lang == "en" else "**Dosyalar alındı**:")
 
     def short_meta(f: Dict[str, Any]) -> str:
         ct = (f.get("content_type") or "").split(";")[0]
@@ -340,32 +394,21 @@ def _summarize_files(files: Sequence[Dict[str, Any]], lang: str) -> str:
     for f in files:
         lines.append(short_meta(f))
 
-    # If we have any text-bearing doc, give a compact summary
-    text_blobs: List[Tuple[str, str]] = []  # (name, text)
+    text_blobs: List[Tuple[str, str]] = []
     for f in files:
         t = (f.get("text") or "").strip()
         if t:
             text_blobs.append((f.get("name") or "file", t))
 
     if text_blobs:
-        if lang == "en":
-            lines.append("\n**Quick peeks**:")
-        else:
-            lines.append("\n**Hızlı bakış**:")
-
+        lines.append("\n**Quick peeks**:" if lang == "en" else "\n**Hızlı bakış**:")
         for nm, txt in text_blobs[:3]:
             preview = _peek_text(txt, 600)
-            if lang == "en":
-                lines.append(f"- **{nm}**\n\n{_md_blockquote(preview)}")
-            else:
-                lines.append(f"- **{nm}**\n\n{_md_blockquote(preview)}")
-
-        # global summary
+            lines.append(f"- **{nm}**\n\n{_md_blockquote(preview)}")
         joined = "\n\n".join(t for _, t in text_blobs)[:8000]
         lines.append("")
         lines.append(_summarize_text_block(joined, lang))
 
-    # CSV hint
     for f in files:
         if (f.get("content_type") or "").lower() in {"text/csv", "application/vnd.ms-excel"} or re.search(
                 r"\.(csv|tsv)$", f.get("name") or "", re.I
@@ -377,15 +420,14 @@ def _summarize_files(files: Sequence[Dict[str, Any]], lang: str) -> str:
                 else:
                     lines.append(f"\n**CSV**: sütunlar → {', '.join(cols)} · satır ≈ **{rows}**")
 
-    # Image hint
     img_count = sum(
         1 for f in files if _is_truthy(f.get("is_image")) or str(f.get("content_type", "")).startswith("image/"))
     if img_count:
-        if lang == "en":
-            lines.append(f"\n_I added a gallery with {img_count} {_plural(img_count, 'image', 'images')}_ above._")
-        else:
-            lines.append(f"\n_Yukarıya {img_count} {_plural(img_count, 'görsel', 'görsel')} galerisi ekledim._")
-
+        lines.append(
+            f"\n_I added a gallery with {img_count} {_plural(img_count, 'image', 'images')}_ above._"
+            if lang == "en"
+            else f"\n_Yukarıya {img_count} {_plural(img_count, 'görsel', 'görsel')} galerisi ekledim._"
+        )
     return "\n".join(lines).strip()
 
 
@@ -399,7 +441,6 @@ def _extract_from_files(files: Sequence[Dict[str, Any]]) -> Dict[str, List[str]]
         links.extend(_URL_RE.findall(blob))
         todos.extend([m.group(2).strip() for m in _TODO_RE.finditer(blob)])
 
-    # dedupe preserving order
     def uniq(xs: Iterable[str]) -> List[str]:
         seen = set()
         out: List[str] = []
@@ -458,10 +499,11 @@ HELP_EN = _wrap_steps(
     "- `/summarize` — summarize attached files (TXT/MD/CSV/PDF*)\n"
     "- `/extract` — pull **emails** and **links** from attached files\n"
     "- `/todo` — list TODO/FIXME/NOTE lines from files\n"
-    "- `/stats` — word/char stats for your message or file text\n\n"
+    "- `/stats` — word/char stats for your message or file text\n"
+    "- `/ask …` — search the site and show the best matches\n"
+    "- `/reindex` (admin) — rebuild site index\n"
+    "- `/reindex status` (admin) — show progress\n\n"
     "_*PDF/DOCX extraction depends on backend text pass-through; I’ll use whatever text your server gives me._",
-    "- /ask … — search the site and show the best matches\n",
-
 )
 
 HELP_TR = _wrap_steps(
@@ -471,16 +513,18 @@ HELP_TR = _wrap_steps(
     "- `/about` — ben kimim, bu site ne\n"
     "- `/inventory` · `/badges` — envanter / rozetlerin (*Bambi Game*)\n"
     "- `/reco` — sırada ne var\n"
-    "- `/profile` · `/login` · `/signup` — hızlı giriş kaydol\n"
+    "- `/profile` · `/login` · `/signup` — hızlı giriş/kayıt\n"
     "- `/theme pink|hot|white` — tema nasıl değiştirilir\n"
     "- `/time` · `/date` — saat ve tarih\n"
     "- `/md` — markdown örneği\n"
     "- `/summarize` — ekli dosyaları özetle (TXT/MD/CSV/PDF*)\n"
     "- `/extract` — dosyalardan **e-posta** ve **linkleri** çıkar\n"
     "- `/todo` — dosyalardaki TODO/FIXME/NOTE satırları\n"
-    "- `/stats` — mesajın veya dosya metninin istatistikleri\n\n"
+    "- `/stats` — mesajın veya dosya metninin istatistikleri\n"
+    "- `/ask …` — sitede arayıp en iyi eşleşmeleri gösterir\n"
+    "- `/reindex` (admin) — site indeksini yeniden kurar\n"
+    "- `/reindex status` (admin) — durumu gösterir\n\n"
     "_*PDF/DOCX özeti, sunucunun bana ilettiği metne bağlıdır._",
-    "- /ask … — sitede arayıp en iyi eşleşmeleri gösterir\n",
 )
 
 
@@ -500,10 +544,7 @@ def _links(lang: str) -> str:
         ("Privacy", LINKS["privacy"]),
         ("Terms", LINKS["terms"]),
     ]
-    if lang == "en":
-        head = "**Key links**"
-    else:
-        head = "**Önemli linkler**"
+    head = "**Key links**" if lang == "en" else "**Önemli linkler**"
     rows = [f"- {_md_link(t, u)}" for t, u in items]
     return _wrap_steps(head, "\n".join(rows))
 
@@ -532,15 +573,15 @@ def _md_demo(lang: str) -> str:
         return _wrap_steps(
             "**Markdown demo**",
             "- **Bold**, *italic*, `code`, ~~strike~~\n"
-            "- Lists, links " + _md_link("bambicim.com", LINKS["home"]) + "\n"
-                                                                          "```python\nprint('hi from Bambi')\n```"
+            f"- Lists, links {_md_link('bambicim.com', LINKS['home'])}\n"
+            "```python\nprint('hi from Bambi')\n```"
         )
     else:
         return _wrap_steps(
             "**Markdown örneği**",
             "- **Kalın**, *italik*, `kod`, ~~üstü çizili~~\n"
-            "- Listeler, linkler " + _md_link("bambicim.com", LINKS["home"]) + "\n"
-                                                                               "```python\nprint('Bambi’den selam')\n```"
+            f"- Listeler, linkler {_md_link('bambicim.com', LINKS['home'])}\n"
+            "```python\nprint('Bambi’den selam')\n```"
         )
 
 
@@ -620,10 +661,10 @@ def _handle_command(cmd: str, arg: str, lang: str, ctx: dict, user: Optional[str
     c = cmd.lower()
     a = (arg or "").strip()
     files_in = list(ctx.get("files_in") or [])
-    # images (for gallery), non-images (for list)
     imgs = [f for f in files_in if _is_truthy(f.get("is_image")) or str(f.get("content_type", "")).startswith("image/")]
-    nonimgs = [f for f in files_in if f not in imgs]
+    nonimgs = [f for f in files_in if f not in imgs]  # noqa: F841
 
+    # retrieval
     if c in {"ask", "search", "find"}:
         q2 = a or (ctx.get("message_text") or "")
         hits = []
@@ -633,66 +674,64 @@ def _handle_command(cmd: str, arg: str, lang: str, ctx: dict, user: Optional[str
             hits = []
         return _answer_from_hits(q2, lang, hits)
 
-    if c in {"help", "h", "?"}:
-        return _help(lang)
-    if c in {"links"}:
-        return _links(lang)
-    if c in {"about", "bambi"}:
-        return _about(lang)
-    if c in {"inventory", "inv"}:
-        return H_inv("", lang, ctx, user)
-    if c in {"badges", "ach", "achievements"}:
-        return H_ach("", lang, ctx, user)
-    if c in {"reco", "suggest"}:
-        return H_reco("", lang, ctx, user)
-    if c in {"profile"}:
-        return (_md_link("Profile", LINKS["profile"]) if user else _md_link("Login", LINKS["login"]))
-    if c in {"login"}:
-        return _md_link("Login", LINKS["login"])
-    if c in {"signup", "register"}:
-        return _md_link("Sign up", LINKS["signup"])
-    if c in {"time"}:
-        return H_time("", lang, ctx, user)
-    if c in {"date"}:
-        return H_date("", lang, ctx, user)
-    if c in {"md"}:
-        return _md_demo(lang)
-    if c in {"theme"}:
-        return _theme_hint(lang, a.lower())
+    # reindex (admin)
+    if c == "reindex":
+        if not _is_admin(user or ""):
+            return "Sorry, this command is for admins."
+        if a.strip().lower() == "status":
+            if _REINDEX["running"]:
+                return f"Reindex is running (started {_REINDEX['started']})."
+            msg = "Idle."
+            if _REINDEX["last_ok"]:
+                msg += f" Last success at {_REINDEX['last_ok']}."
+            if _REINDEX["error"]:
+                msg += f" Last error: {_REINDEX['error']}"
+            return msg
+        return _kick_reindex(a)
+
+    # general commands
+    if c in {"help", "h", "?"}: return _help(lang)
+    if c in {"links"}:          return _links(lang)
+    if c in {"about", "bambi"}: return _about(lang)
+    if c in {"inventory", "inv"}: return H_inv("", lang, ctx, user)
+    if c in {"badges", "ach", "achievements"}: return H_ach("", lang, ctx, user)
+    if c in {"reco", "suggest"}: return H_reco("", lang, ctx, user)
+    if c in {"profile"}: return (_md_link("Profile", LINKS["profile"]) if user else _md_link("Login", LINKS["login"]))
+    if c in {"login"}:   return _md_link("Login", LINKS["login"])
+    if c in {"signup", "register"}: return _md_link("Sign up", LINKS["signup"])
+    if c in {"time"}: return H_time("", lang, ctx, user)
+    if c in {"date"}: return H_date("", lang, ctx, user)
+    if c in {"md"}:   return _md_demo(lang)
+    if c in {"theme"}: return _theme_hint(lang, a.lower())
     if c in {"summarize", "summary", "sum"}:
-        if files_in:
-            return _wrap_steps(_summarize_files(files_in, lang))
-        else:
-            return ("Attach a file first with the **📎** button." if lang == "en" else "Önce **📎** ile bir dosya ekle.")
+        return _wrap_steps(_summarize_files(files_in, lang)) if files_in else (
+            "Attach a file first with the **📎** button." if lang == "en" else "Önce **📎** ile bir dosya ekle."
+        )
     if c in {"extract"}:
-        if files_in:
-            ex = _extract_from_files(files_in)
-            if lang == "en":
-                parts = []
-                if ex["emails"]: parts.append("**Emails**: " + _list_head(ex["emails"], 12))
-                if ex["links"]: parts.append("**Links**: " + _list_head(ex["links"], 12))
-                if ex["todos"]: parts.append("**TODOs**: " + _list_head(ex["todos"], 12))
-                return _wrap_steps(*parts) if parts else "Nothing obvious found."
-            else:
-                parts = []
-                if ex["emails"]: parts.append("**E-postalar**: " + _list_head(ex["emails"], 12))
-                if ex["links"]: parts.append("**Linkler**: " + _list_head(ex["links"], 12))
-                if ex["todos"]: parts.append("**TODO**: " + _list_head(ex["todos"], 12))
-                return _wrap_steps(*parts) if parts else "Belirgin bir şey bulunamadı."
+        if not files_in:
+            return "Attach a file first with the **📎** button." if lang == "en" else "Önce **📎** ile bir dosya ekle."
+        ex = _extract_from_files(files_in)
+        if lang == "en":
+            parts = []
+            if ex["emails"]: parts.append("**Emails**: " + _list_head(ex["emails"], 12))
+            if ex["links"]:  parts.append("**Links**: " + _list_head(ex["links"], 12))
+            if ex["todos"]:  parts.append("**TODOs**: " + _list_head(ex["todos"], 12))
+            return _wrap_steps(*parts) if parts else "Nothing obvious found."
         else:
-            return ("Attach a file first with the **📎** button." if lang == "en" else "Önce **📎** ile bir dosya ekle.")
+            parts = []
+            if ex["emails"]: parts.append("**E-postalar**: " + _list_head(ex["emails"], 12))
+            if ex["links"]:  parts.append("**Linkler**: " + _list_head(ex["links"], 12))
+            if ex["todos"]:  parts.append("**TODO**: " + _list_head(ex["todos"], 12))
+            return _wrap_steps(*parts) if parts else "Belirgin bir şey bulunamadı."
     if c in {"todo"}:
-        if files_in:
-            ex = _extract_from_files(files_in)
-            rows = ex["todos"][:10]
-            if not rows:
-                return ("No TODO lines found." if lang == "en" else "TODO satırı bulunamadı.")
-            if lang == "en":
-                return _wrap_steps("**TODOs found**", "\n".join(f"- {t}" for t in rows))
-            else:
-                return _wrap_steps("**Bulunan TODO’lar**", "\n".join(f"- {t}" for t in rows))
-        else:
-            return ("Attach a file first with the **📎** button." if lang == "en" else "Önce **📎** ile bir dosya ekle.")
+        if not files_in:
+            return "Attach a file first with the **📎** button." if lang == "en" else "Önce **📎** ile bir dosya ekle."
+        ex = _extract_from_files(files_in)
+        rows = ex["todos"][:10]
+        if not rows:
+            return "No TODO lines found." if lang == "en" else "TODO satırı bulunamadı."
+        return _wrap_steps("**TODOs found**" if lang == "en" else "**Bulunan TODO’lar**",
+                           "\n".join(f"- {t}" for t in rows))
     if c in {"stats"}:
         txt = a or ctx.get("message_text") or ""
         if not txt and files_in:
@@ -700,12 +739,12 @@ def _handle_command(cmd: str, arg: str, lang: str, ctx: dict, user: Optional[str
                 if f.get("text"):
                     txt = (txt + "\n\n" + f.get("text")).strip()
         if not txt:
-            return ("Nothing to analyze." if lang == "en" else "Analiz edilecek içerik yok.")
+            return "Nothing to analyze." if lang == "en" else "Analiz edilecek içerik yok."
         st = _simple_stats(txt)
-        if lang == "en":
-            return f"**Stats** · chars **{st['chars']}**, words **{st['words']}**, sentences **{st['sentences']}**, avg word **{st['avg_wlen']}**"
-        else:
-            return f"**İstatistik** · karakter **{st['chars']}**, kelime **{st['words']}**, cümle **{st['sentences']}**, ort. kelime **{st['avg_wlen']}**"
+        return (
+            f"**Stats** · chars **{st['chars']}**, words **{st['words']}**, sentences **{st['sentences']}**, avg word **{st['avg_wlen']}**"
+            if lang == "en" else
+            f"**İstatistik** · karakter **{st['chars']}**, kelime **{st['words']}**, cümle **{st['sentences']}**, ort. kelime **{st['avg_wlen']}**")
     return None
 
 
@@ -738,7 +777,7 @@ RULES: List[Tuple[re.Pattern, Any]] = [
 # Main entry
 # --------------------------------------------------------------------------------------
 
-def _answer_from_hits(q: str, lang: str, hits: list[dict], k: int = 5) -> str:
+def _answer_from_hits(q: str, lang: str, hits: List[dict], k: int = 5) -> str:
     if not hits:
         return ("I couldn’t find anything on the site for that." if lang == "en"
                 else "Site içinde bununla ilgili bir şey bulamadım.")
@@ -775,7 +814,7 @@ def reply_for(
     q_norm = _normalize(q or "")
     ctx["message_text"] = q
 
-    # 1) Commands (start with '/')
+    # 1) Commands
     m = CMD_RX.match(q.strip())
     if m:
         cmd, arg = m.group(1), m.group(2) or ""
@@ -787,13 +826,10 @@ def reply_for(
     files_in = list(ctx.get("files_in") or [])
     if files_in:
         if re.search(r"\b(summar|özet|extract|çıkar|todo|gözden|analy|istatistik)\b", q_norm):
-            # delegate to summarize/extract commands
-            if re.search(r"\b(extract|çıkar)\b", q_norm):
-                return _handle_command("extract", "", LL, ctx, user_name) or ""
-            if re.search(r"\b(todo)\b", q_norm):
-                return _handle_command("todo", "", LL, ctx, user_name) or ""
-            if re.search(r"\b(stat|istat)\b", q_norm):
-                return _handle_command("stats", "", LL, ctx, user_name) or ""
+            if re.search(r"\b(extract|çıkar)\b", q_norm): return _handle_command("extract", "", LL, ctx,
+                                                                                 user_name) or ""
+            if re.search(r"\b(todo)\b", q_norm):    return _handle_command("todo", "", LL, ctx, user_name) or ""
+            if re.search(r"\b(stat|istat)\b", q_norm): return _handle_command("stats", "", LL, ctx, user_name) or ""
             return _handle_command("summarize", "", LL, ctx, user_name) or ""
 
     # 3) FAQ quick answers
@@ -822,34 +858,30 @@ def reply_for(
     if LL == "en":
         parts.append(
             "Here are some quick things I can do:\n"
-            "- " + _md_code("/links") + "  ·  site links\n"
-                                        "- " + _md_code("/inventory") + " · items from the game\n"
-                                                                        "- " + _md_code(
-                "/summarize") + " · summarize your files (use the **📎**)\n"
-                                "- " + _md_code("/md") + " · markdown demo"
+            f"- {_md_code('/links')}  ·  site links\n"
+            f"- {_md_code('/inventory')} · items from the game\n"
+            f"- {_md_code('/summarize')} · summarize your files (use the **📎**)\n"
+            f"- {_md_code('/md')} · markdown demo"
         )
     else:
         parts.append(
             "Hızlı yapabildiklerim:\n"
-            "- " + _md_code("/links") + "  ·  site linkleri\n"
-                                        "- " + _md_code("/inventory") + " · oyundan eşyaların\n"
-                                                                        "- " + _md_code(
-                "/summarize") + " · dosyaları özetle (**📎** ile ekle)\n"
-                                "- " + _md_code("/md") + " · markdown örneği"
+            f"- {_md_code('/links')}  ·  site linkleri\n"
+            f"- {_md_code('/inventory')} · oyundan eşyaların\n"
+            f"- {_md_code('/summarize')} · dosyaları özetle (**📎** ile ekle)\n"
+            f"- {_md_code('/md')} · markdown örneği"
         )
 
     # context-aware tease
     inv = list(ctx.get("inv") or [])
     ach = list(ctx.get("ach") or [])
-    if inv:
-        parts.append(H_inv("", LL, ctx, user_name))
-    if ach:
-        parts.append(H_ach("", LL, ctx, user_name))
+    if inv: parts.append(H_inv("", LL, ctx, user_name))
+    if ach: parts.append(H_ach("", LL, ctx, user_name))
 
-    # Soft CTA
+    # Soft CTA (fix: remove double backticks)
     if LL == "en":
-        parts.append(f"_Or ping me with `{_md_code('/help')}` if you like menus._")
+        parts.append(f"_Or ping me with {_md_code('/help')} if you like menus._")
     else:
-        parts.append(f"_İstersen `{_md_code('/help')}` yaz, küçük menümü açayım._")
+        parts.append(f"_İstersen {_md_code('/help')} yaz, küçük menümü açayım._")
 
     return _wrap_steps(*parts)
