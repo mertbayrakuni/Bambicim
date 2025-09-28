@@ -5,11 +5,11 @@
     --bmb-p2: #ff96d5; /* soft pink */
     --bmb-ink: #2a0017; /* deep plum text */
     --bmb-bg: #fff; /* surfaces */
-    --bmb-line: #efeff1;
-    --bmb-muted: #6b7280;
+    --bmb-line: #efeff1; /* borders */
+    --bmb-muted: #6b7280; /* secondary text */
     --bmb-soft: #fff7fb; /* assistant bubble */
     --bmb-soft2: #ffe0f2; /* user bubble */
-    --bmb-typing: #ffe6f5;
+    --bmb-typing: #ffe6f5; /* typing bubble */
 }
 
 /* ============ CONTAINER ============ */
@@ -26,10 +26,10 @@
 }
 
 .bmb-h {
-    display: none !important;
+    display: none !important
 }
 
-/* log */
+/* scrollable log */
 .bmb-log {
     background: var(--bmb-bg);
     border-radius: 12px;
@@ -78,10 +78,10 @@
 }
 
 .bmb-b a:hover {
-    border-bottom-color: currentColor;
+    border-bottom-color: currentColor
 }
 
-/* timestamp */
+/* timestamps */
 .bmb-ts {
     font-size: 11px;
     color: var(--bmb-muted);
@@ -94,13 +94,13 @@
 .bmb-b.bmb-typing {
     margin-right: auto;
     color: #7a2857;
-    background: var(--bmb-typing);
+    background: var(--bmb-typing)
 }
 
 .bmb-typing .dots {
     display: inline-flex;
     gap: 4px;
-    vertical-align: middle;
+    vertical-align: middle
 }
 
 .bmb-typing .dot {
@@ -109,15 +109,15 @@
     border-radius: 50%;
     background: #7a2857;
     opacity: .32;
-    animation: bmb-bounce 1s infinite ease-in-out;
+    animation: bmb-bounce 1s infinite ease-in-out
 }
 
 .bmb-typing .dot:nth-child(2) {
-    animation-delay: .15s;
+    animation-delay: .15s
 }
 
 .bmb-typing .dot:nth-child(3) {
-    animation-delay: .3s;
+    animation-delay: .3s
 }
 
 @keyframes bmb-bounce {
@@ -139,15 +139,14 @@
     background: #fff;
     border-top: 1px solid var(--bmb-line);
     padding: 10px 12px;
-    display: flex;
+    display: grid;
+    grid-template-columns:auto 1fr auto auto auto; /* 📎 | input | 🎤 | gönder | ok/iptal */
+    gap: 8px;
     align-items: center;
-    gap: 10px;
-    flex-wrap: nowrap; /* force one line */
 }
 
 /* left: clip */
 .bmb-clip {
-    flex: 0 0 auto;
     width: 40px;
     height: 40px;
     display: grid;
@@ -161,7 +160,6 @@
 
 /* middle: input */
 .bmb-inp {
-    flex: 1 1 auto;
     min-width: 0;
     height: 44px;
     line-height: 44px;
@@ -175,17 +173,16 @@
 }
 
 .bmb-inp::placeholder {
-    color: var(--bmb-muted);
+    color: var(--bmb-muted)
 }
 
 .bmb-inp:focus {
     border-color: var(--bmb-p1);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--bmb-p1) 35%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--bmb-p1) 35%, transparent)
 }
 
 /* right: mic + send */
 .bmb-mic {
-    flex: 0 0 auto;
     width: 40px;
     height: 40px;
     display: inline-flex;
@@ -200,7 +197,7 @@
 
 .bmb-mic.rec {
     box-shadow: 0 0 0 2px color-mix(in srgb, #e94343 25%, transparent) inset;
-    animation: bmb-pulse 1.2s ease-in-out infinite;
+    animation: bmb-pulse 1.2s ease-in-out infinite
 }
 
 @keyframes bmb-pulse {
@@ -216,7 +213,6 @@
 }
 
 .bmb-send, .bmb-ok, .bmb-cancel {
-    flex: 0 0 auto;
     height: 44px;
     padding: 0 20px;
     border: 0;
@@ -231,32 +227,32 @@
 .bmb-send {
     background: var(--bmb-p1);
     color: #fff;
-    box-shadow: 0 4px 8px color-mix(in srgb, var(--bmb-p1) 15%, transparent);
+    box-shadow: 0 4px 8px color-mix(in srgb, var(--bmb-p1) 15%, transparent)
 }
 
 .bmb-send:hover {
-    background: #ff58b9;
+    background: #ff58b9
 }
 
 .bmb-send:active {
-    background: #ff33aa;
+    background: #ff33aa
 }
 
 .bmb-send:disabled {
     background: #ffc2e6;
-    cursor: not-allowed;
+    cursor: not-allowed
 }
 
 .bmb-ok {
     background: #ff58b9;
     color: #fff;
-    display: none;
+    display: none
 }
 
 .bmb-cancel {
     background: #fff;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, .12) inset;
-    display: none;
+    display: none
 }
 
 /* voice mode: collapse input, show ok/cancel */
@@ -267,22 +263,22 @@
     padding: 0;
     border: 0;
     margin: 0;
-    flex: 0 0 0;
+    flex: 0 0 0
 }
 
 .bmb-row.rec .bmb-send {
-    display: none;
+    display: none
 }
 
 .bmb-row.rec .bmb-ok, .bmb-row.rec .bmb-cancel {
-    display: inline-flex;
+    display: inline-flex
 }
 
-/* animated “listening” pill overlay */
+/* animated “listening” pill (overlay) */
 .bmb-waves {
     position: absolute;
-    left: 52px;
-    right: 160px;
+    left: 64px;
+    right: 170px;
     top: 50%;
     transform: translateY(-50%);
     height: 40px;
@@ -292,8 +288,7 @@
     padding: 6px 10px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--bmb-p1) 8%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bmb-p1) 22%, transparent),
-    0 4px 12px color-mix(in srgb, var(--bmb-p1) 10%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bmb-p1) 22%, transparent), 0 4px 12px color-mix(in srgb, var(--bmb-p1) 10%, transparent);
     pointer-events: none;
     opacity: 0;
     transition: opacity .18s ease;
@@ -301,7 +296,7 @@
 
 .bmb-waves.on {
     display: flex;
-    opacity: 1;
+    opacity: 1
 }
 
 .bmb-waves::before {
@@ -309,7 +304,7 @@
     font-size: 14px;
     color: var(--bmb-p1);
     margin-right: 8px;
-    align-self: center;
+    align-self: center
 }
 
 .bmb-waves .bar {
@@ -318,20 +313,21 @@
     height: 40%;
     border-radius: 2px;
     transform-origin: bottom center;
-    background: linear-gradient(to top, color-mix(in srgb, var(--bmb-p1) 95%, white),
-    color-mix(in srgb, var(--bmb-p1) 45%, white));
+    background: linear-gradient(to top, color-mix(in srgb, var(--bmb-p1) 95%, white), color-mix(in srgb, var(--bmb-p1) 45%, white));
     box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
 }
 
-/* file “chips” — float above row so the row stays 1 line */
+/* file chips row (only when there are picks) */
 .bmb-picks {
-    position: absolute;
-    left: 52px;
-    right: 160px;
-    bottom: calc(100% + 6px);
+    grid-column: 1 / -1;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    margin-top: 6px;
+}
+
+.bmb-picks:empty {
+    display: none
 }
 
 .bmb-pick {
@@ -348,7 +344,7 @@
 
 .bmb-pick .ico {
     font-size: 1.05rem;
-    line-height: 1;
+    line-height: 1
 }
 
 .bmb-pick .rm {
@@ -356,29 +352,34 @@
     background: transparent;
     color: #c0257a;
     cursor: pointer;
-    font-weight: 800;
+    font-weight: 800
+}
+
+/* hidden file input should never take space */
+.bmb-file[hidden] {
+    display: none !important
 }
 
 /* ============ GALLERY ============ */
 .bmb-b.has-gallery {
-    max-width: 100%;
+    max-width: 100%
 }
 
 .bmb-gallery {
     display: grid;
     gap: 10px;
-    grid-template-columns:repeat(2, minmax(0, 1fr));
+    grid-template-columns:repeat(2, minmax(0, 1fr))
 }
 
 @media (min-width: 480px) {
     .bmb-gallery {
-        grid-template-columns:repeat(3, 1fr);
+        grid-template-columns:repeat(3, 1fr)
     }
 }
 
 @media (min-width: 768px) {
     .bmb-gallery {
-        grid-template-columns:repeat(4, 1fr);
+        grid-template-columns:repeat(4, 1fr)
     }
 }
 
@@ -393,13 +394,13 @@
 }
 
 .bmb-gallery .tile:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, .12);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .12)
 }
 
 .bmb-gallery .img-wrap {
     width: 100%;
     height: 100px;
-    overflow: hidden;
+    overflow: hidden
 }
 
 .bmb-gallery img {
@@ -407,14 +408,13 @@
     height: 100%;
     object-fit: cover;
     display: block;
-    transition: transform .18s ease;
+    transition: transform .18s ease
 }
 
 .bmb-gallery .tile:hover .img-wrap img {
-    transform: scale(1.035);
+    transform: scale(1.035)
 }
 
-/* caption clamp (2 lines) */
 .bmb-gallery .cap {
     --cap-lh: 1.3;
     padding: 8px 10px;
@@ -435,7 +435,7 @@
     .bmb-gallery .cap {
         display: block;
         max-height: calc(2 * var(--cap-lh) * 1em);
-        overflow: hidden;
+        overflow: hidden
     }
 }
 
@@ -443,7 +443,7 @@
 .bmb-files {
     display: grid;
     grid-template-columns:1fr;
-    gap: 6px;
+    gap: 6px
 }
 
 .bmb-file-row {
@@ -458,17 +458,17 @@
 }
 
 .bmb-file-row .ico {
-    font-size: 1rem;
+    font-size: 1rem
 }
 
 .bmb-file-row a {
     font-weight: 700;
-    color: #2a0017;
+    color: #2a0017
 }
 
 /* ============ MODAL ============ */
 body.bmb-modal-open {
-    overflow: hidden;
+    overflow: hidden
 }
 
 .bmb-overlay {
@@ -482,7 +482,7 @@ body.bmb-modal-open {
 }
 
 .bmb-overlay.open {
-    opacity: 1;
+    opacity: 1
 }
 
 .bmb-panel {
@@ -549,7 +549,7 @@ body.bmb-modal-open {
 
 .bmb-tts.on {
     background: var(--bmb-p1);
-    color: #fff;
+    color: #fff
 }
 
 .bmb-body {
@@ -562,6 +562,11 @@ body.bmb-modal-open {
     height: 100%;
 }
 
+/* optional footer note (hidden by default) */
+.bmb-disclaimer {
+    display: none
+}
+
 /* ============ MOBILE ============ */
 @media (max-width: 768px) {
     .bmb-panel {
@@ -570,45 +575,35 @@ body.bmb-modal-open {
         width: 100vw;
         height: 100dvh;
         border-radius: 0;
-        box-shadow: none;
+        box-shadow: none
     }
 
     .bmb-body {
-        padding: 10px env(safe-area-inset-right) calc(10px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
+        padding: 10px env(safe-area-inset-right) calc(10px + env(safe-area-inset-bottom)) env(safe-area-inset-left)
     }
 
     .bmb-head {
         padding-left: 16px;
-        padding-right: 72px;
+        padding-right: 72px
     }
 
     .bmb-close {
         top: 6px;
         right: 6px;
-        background: rgba(0, 0, 0, .3);
+        background: rgba(0, 0, 0, .3)
     }
 
     .bmb-tts {
         top: 6px;
         right: 52px;
         background: rgba(0, 0, 0, .2);
-        color: #fff;
+        color: #fff
     }
 
     .bmb-waves {
-        left: 48px;
-        right: 130px;
+        left: 56px;
+        right: 140px
     }
-
-    .bmb-picks {
-        left: 48px;
-        right: 130px;
-    }
-}
-
-/* optional footer note (hidden by default) */
-.bmb-disclaimer {
-    display: none;
 }
 
 /* ============ DEBUG (F9) ============ */
@@ -628,7 +623,7 @@ body.bmb-modal-open {
 }
 
 .bmb-debug.open {
-    display: block;
+    display: block
 }
 
 .bmb-debug .hd {
@@ -648,31 +643,4 @@ body.bmb-modal-open {
     max-height: calc(50vh - 28px);
     overflow: auto;
     white-space: pre-wrap;
-}
-
-/* keep input controls on one line */
-.bmb-row {
-    display: grid;
-    grid-template-columns:auto 1fr auto auto auto; /* clip | input | mic | send | ok/cancel */
-    gap: 8px;
-    align-items: center;
-}
-
-/* file chips line: only show when there are picks, and sit on its own row */
-.bmb-picks {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 6px;
-}
-
-/* the important part: do NOT render an empty row */
-.bmb-picks:empty {
-    display: none;
-}
-
-/* make sure the hidden file input never participates in layout */
-.bmb-file[hidden] {
-    display: none !important;
 }
