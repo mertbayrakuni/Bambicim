@@ -84,8 +84,33 @@ GREETINGS = {
 
 
 def _assistant_reply(user_text: str) -> tuple[str, list[dict]]:
-    reply, cites = rag_answer(user_text, 6)
-    return reply, cites
+    cites = rsearch(user_text, 5)
+
+    intro = "Bambi Copilot burada 💖 Kısaca özetliyorum…"
+    if any(w in user_text.lower() for w in ("iletişim", "contact", "email", "mail")):
+        intro = "İletişim bilgilerini aradım. Aşağıda en ilgili sonuçlar var."
+
+    synthesis = ""
+    if cites:
+        # stitch 1–2 best snippets into a short answer
+        top_snips = [c["snippet"] for c in cites[:2] if c.get("snippet")]
+        if top_snips:
+            synthesis = " ".join(top_snips)[:400]
+
+    parts = [f"{intro}"]
+    if synthesis:
+        parts.append("")
+        parts.append(synthesis)
+
+    if cites:
+        parts.append("\n**Kaynaklar**")
+        for c in cites:
+            title = c["title"] or c["url"]
+            parts.append(f"- [{title}]({c['url']}) — {c['snippet']}")
+    else:
+        parts.append("\nUygun kaynak bulamadım; biraz daha bağlam verir misin?")
+
+    return "\n".join(parts), cites
 
 
 @csrf_exempt
