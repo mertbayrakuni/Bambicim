@@ -1,10 +1,12 @@
-# core/bot.py  — persona + inventory/achievements aware
+# core/bot.py  — persona + inventory/achievements aware (fixed normalize)
 
 from __future__ import annotations
 
 import datetime as dt
 import random
 import re
+
+import unicodedata
 
 BASE = "https://bambicim.com"
 LINKS = {
@@ -18,10 +20,12 @@ LINKS = {
 }
 
 
-def _now(): return dt.datetime.now()
+def _now() -> dt.datetime:
+    return dt.datetime.now()
 
 
-def _choose(xs): return random.choice(xs)
+def _choose(xs):
+    return random.choice(xs)
 
 
 # ---- tiny language detection (TR/EN) ----
@@ -29,19 +33,62 @@ _TR_CHARS = "ıİşŞğĞçÇöÖüÜ"
 _TR_HINTS = {"merhaba", "selam", "giriş", "kayıt", "oyun", "tema", "envanter", "profil", "iletisim", "iletişim", "hata"}
 _EN_HINTS = {"hi", "hello", "login", "signup", "game", "theme", "inventory", "profile", "contact", "work", "error"}
 
+# single-char translate table (✅ keys are ord(..), values can be multi-char)
+_TRANSLATE_TABLE = {
+    # smart quotes / dashes / spaces
+    ord("’"): "'",
+    ord("‘"): "'",
+    ord("“"): '"',
+    ord("”"): '"',
+    ord("–"): "-",
+    ord("—"): "-",
+    ord("…"): "...",
+    ord("\u00A0"): " ",  # NBSP
+    ord("\u200B"): "",  # zero-width space
+
+    # Turkish letters -> ASCII-ish for intent matching
+    ord("İ"): "i",
+    ord("I"): "i",  # uppercase I -> i for matching only
+    ord("ı"): "i",
+    ord("Ş"): "s",
+    ord("ş"): "s",
+    ord("Ğ"): "g",
+    ord("ğ"): "g",
+    ord("Ç"): "c",
+    ord("ç"): "c",
+    ord("Ö"): "o",
+    ord("ö"): "o",
+    ord("Ü"): "u",
+    ord("ü"): "u",
+}
+
 
 def _normalize(s: str) -> str:
-    tr = str.maketrans(
-        {"İ": "i", "İ": "i", "ı": "i", "Ş": "s", "ş": "s", "Ğ": "g", "ğ": "g", "Ç": "c", "ç": "c", "Ö": "o", "ö": "o",
-         "Ü": "u", "ü": "u"})
-    return (s or "").lower().translate(tr)
+    """
+    Robust normalizer used only for intent matching.
+    Fixes previous crash: translate-table now uses ord() keys (1-char).
+    """
+    if not s:
+        return ""
+    # unify newlines (DON'T put multi-char keys in translate)
+    s = s.replace("\r\n", "\n").replace("\r", "\n")
+    # Unicode tidy (keeps emojis)
+    s = unicodedata.normalize("NFKC", s)
+    # safe translate
+    s = s.translate(_TRANSLATE_TABLE)
+    # collapse whitespace, lowercase
+    s = re.sub(r"[ \t]+", " ", s)
+    return s.strip().lower()
 
 
 def _detect_lang(q: str) -> str:
-    if any(c in (q or "") for c in _TR_CHARS): return "tr"
+    if any(c in (q or "") for c in _TR_CHARS):
+        return "tr"
     qn = _normalize(q)
-    if any(w in qn.split() for w in _TR_HINTS): return "tr"
-    if any(w in qn.split() for w in _EN_HINTS): return "en"
+    if any(w in qn.split() for w in _TR_HINTS):
+        return "tr"
+    if any(w in qn.split() for w in _EN_HINTS):
+        return "en"
     return "tr"
 
 
@@ -76,10 +123,7 @@ I18N = {
     "ach_none": {"tr": "Henüz rozet yok. İlkini kapmak için oyunda birkaç seçim dene ✨",
                  "en": "No badges yet — try a few choices in the game ✨"},
     "ach_some": {"tr": "Aferin! **{n}** rozetin var: {list}", "en": "Yay! You’ve got **{n}** badges: {list}"},
-    "recommend": {
-        "tr": "Önerim: {one} • {two}",
-        "en": "My pick: {one} • {two}",
-    },
+    "recommend": {"tr": "Önerim: {one} • {two}", "en": "My pick: {one} • {two}"},
     "debug_hint": {
         "tr": "Hata mı var? F9 ile debug panelini aç; HTTP durumunu görürsün. 403 görürsen `/api/chat` için CSRF muafiyeti gerekli.",
         "en": "Seeing an error? Press F9 to open the debug panel; you’ll see the HTTP status. If it’s 403, make `/api/chat` CSRF-exempt.",
@@ -98,13 +142,19 @@ def words_rx(ws): return re.compile(r"\b(?:%s)\b" % "|".join(re.escape(w) for w 
 
 # ---------- helpers for game context ----------
 def _fmt_items(items, lang):
-    # items: list of dicts/tuples -> try to render “emoji name × qty”
+    # items: list of dicts/tuples -> render “emoji name × qty”
     out = []
     for r in items[:6]:
-        slug = (r.get("slug") if isinstance(r, dict) else (r[0] if len(r) > 0 else "")) if r else ""
-        name = (r.get("name") if isinstance(r, dict) else "") or slug
-        emoji = (r.get("emoji") if isinstance(r, dict) else "")
-        qty = (r.get("qty") if isinstance(r, dict) else (r[1] if len(r) > 1 else 1)) or 1
+        if isinstance(r, dict):
+            slug = r.get("slug", "")
+            name = r.get("name") or slug
+            emoji = r.get("emoji", "")
+            qty = r.get("qty", 1) or 1
+        else:
+            slug = (r[0] if (isinstance(r, (list, tuple)) and len(r) > 0) else "")
+            name = slug
+            emoji = ""
+            qty = (r[1] if (isinstance(r, (list, tuple)) and len(r) > 1) else 1) or 1
         label = f"{emoji} {name} × {qty}".strip()
         out.append(label)
     return ", ".join(out) if out else ""
@@ -112,13 +162,12 @@ def _fmt_items(items, lang):
 
 def _inv_tip(lang, items):
     text = "Tema ‘pink’ ile daha tatlı görünür 💗" if lang != "en" else "Looks even cuter in the pink theme 💗"
-    # tiny heuristics for fun
-    s = " ".join((r.get("slug") if isinstance(r, dict) else r[0]) for r in items if r)
-    if re.search(r"crown|ta[cç]|krali|queen", (s or ""), re.I):
+    s = " ".join(((r.get("slug") if isinstance(r, dict) else (r[0] if r else "")) or "") for r in items if r)
+    if re.search(r"crown|ta[cç]|krali|queen", s, re.I):
         text = "Taç sende—kraliçe mod on 👑"
-    elif re.search(r"heart|kalp", (s or ""), re.I):
+    elif re.search(r"heart|kalp", s, re.I):
         text = "Kalp toplamaya devam, aşk dolu ilerleme! 💖"
-    elif re.search(r"star|yıldız", (s or ""), re.I):
+    elif re.search(r"star|yıldız", s, re.I):
         text = "Yıldızlar yol gösteriyor ⭐"
     return text
 
@@ -156,15 +205,19 @@ def H_ach(q, lang, ctx, user):
     if not ach:
         return I18N["ach_none"][lang]
     names = ", ".join(
-        (f"{a.get('emoji', '')} {a.get('name', '')}".strip() if isinstance(a, dict) else str(a)) for a in ach[:8])
+        (f"{a.get('emoji', '')} {a.get('name', '')}".strip() if isinstance(a, dict) else str(a))
+        for a in ach[:8]
+    )
     return I18N["ach_some"][lang].format(n=len(ach), list=names)
 
 
 def H_reco(q, lang, ctx, user):
     a = f"Game → {LINKS['game']}"
     b = f"Work → {LINKS['work']}"
-    if ctx.get("inv"): a = f"Profilinde envanterin görünüyor → {LINKS['profile']}"
-    if ctx.get("ach"): b = f"Rozetlerini göster → {LINKS['profile']}"
+    if ctx.get("inv"):
+        a = f"Profilinde envanterin görünüyor → {LINKS['profile']}"
+    if ctx.get("ach"):
+        b = f"Rozetlerini göster → {LINKS['profile']}"
     return I18N["recommend"][lang].format(one=a, two=b)
 
 
@@ -172,16 +225,20 @@ def H_debug(q, lang, ctx, user):
     return I18N["debug_hint"][lang]
 
 
-def H_time(q, lang, ctx, user): return ("Şu an saat " if lang != "en" else "The time is ") + _now().strftime("%H:%M")
+def H_time(q, lang, ctx, user):
+    return ("Şu an saat " if lang != "en" else "The time is ") + _now().strftime("%H:%M")
 
 
-def H_date(q, lang, ctx, user): return ("Bugün tarih " if lang != "en" else "Today is ") + _now().strftime("%d.%m.%Y")
+def H_date(q, lang, ctx, user):
+    return ("Bugün tarih " if lang != "en" else "Today is ") + _now().strftime("%d.%m.%Y")
 
 
 def H_auth(q, lang, ctx, user, kind):
-    if kind == "login": return ("Giriş: " if lang != "en" else "Login: ") + LINKS["login"]
-    if kind == "signup": return ("Kayıt: " if lang != "en" else "Sign up: ") + LINKS["signup"]
-    return LINKS["profile"] if user else (LINKS["login"])
+    if kind == "login":
+        return ("Giriş: " if lang != "en" else "Login: ") + LINKS["login"]
+    if kind == "signup":
+        return ("Kayıt: " if lang != "en" else "Sign up: ") + LINKS["signup"]
+    return LINKS["profile"] if user else LINKS["login"]
 
 
 # ---------- router ----------
@@ -206,7 +263,13 @@ RULES = [
 ]
 
 
-def reply_for(q: str, *, user_name: str | None = None, lang: str | None = None, context: dict | None = None) -> str:
+def reply_for(
+        q: str,
+        *,
+        user_name: str | None = None,
+        lang: str | None = None,
+        context: dict | None = None
+) -> str:
     ctx = context or {}
     LL = lang or _detect_lang(q or "")
     qn = _normalize(q or "")
