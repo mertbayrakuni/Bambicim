@@ -4,10 +4,13 @@ from __future__ import annotations
 import os
 import re
 import time
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Dict, Tuple, Optional
 
 import numpy as np
+
+from copilot.dense import search_dense
 
 try:
     from rank_bm25 import BM25Okapi as BM25
@@ -128,6 +131,7 @@ def _split_paragraphs(html_or_text: str, max_len: int = 800) -> list[str]:
             out.append(txt)
 
     return out
+
 
 # ----------------------- index builder ----------------
 def _build_index(force: bool = False) -> None:
@@ -258,3 +262,39 @@ def search(q: str, k: int = 6) -> List[Dict]:
             "snippet": snippet,
         })
     return results
+
+
+def hybrid_search(q: str, k: int = 8, rrf_k: int = 60):
+    bm25 = search(q, k=k)  # your existing BM25 returns list of dicts or (item, score)
+    dense = search_dense(q, k=k)
+
+    def key_from_item(item):
+        # use paragraph text + url as a stable key
+        if isinstance(item, dict):
+            return (item.get("text") or item.get("snippet") or "").strip(), item.get("url")
+        return item[0]["text"], item[0]["url"]
+
+    scores = defaultdict(float)
+    payload = {}
+
+    # normalize shapes for BM25: [(payload, score)]
+    bm_pairs = []
+    for it in bm25:
+        if isinstance(it, tuple):
+            payload_it, s = it
+        else:
+            payload_it, s = it, it.get("score", 0.0)
+        bm_pairs.append((payload_it, float(s)))
+
+    for rank, (pl, _) in enumerate(dense):
+        kkey = key_from_item((pl, None))
+        scores[kkey] += 1.0 / (rrf_k + rank + 1)
+        payload[kkey] = pl
+
+    for rank, (pl, _) in enumerate(bm_pairs):
+        kkey = key_from_item((pl, None))
+        scores[kkey] += 1.0 / (rrf_k + rank + 1)
+        payload[kkey] = pl
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:k]
+    return [payload[k] | {"rrf_score": v} for k, v in ranked]

@@ -8,6 +8,8 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import unicodedata
 
+from copilot.retrieval import hybrid_search
+
 # --------------------------------------------------------------------------------------
 # Site links
 # --------------------------------------------------------------------------------------
@@ -458,6 +460,8 @@ HELP_EN = _wrap_steps(
     "- `/todo` — list TODO/FIXME/NOTE lines from files\n"
     "- `/stats` — word/char stats for your message or file text\n\n"
     "_*PDF/DOCX extraction depends on backend text pass-through; I’ll use whatever text your server gives me._",
+    "- /ask … — search the site and show the best matches\n",
+
 )
 
 HELP_TR = _wrap_steps(
@@ -476,6 +480,7 @@ HELP_TR = _wrap_steps(
     "- `/todo` — dosyalardaki TODO/FIXME/NOTE satırları\n"
     "- `/stats` — mesajın veya dosya metninin istatistikleri\n\n"
     "_*PDF/DOCX özeti, sunucunun bana ilettiği metne bağlıdır._",
+    "- /ask … — sitede arayıp en iyi eşleşmeleri gösterir\n",
 )
 
 
@@ -619,6 +624,15 @@ def _handle_command(cmd: str, arg: str, lang: str, ctx: dict, user: Optional[str
     imgs = [f for f in files_in if _is_truthy(f.get("is_image")) or str(f.get("content_type", "")).startswith("image/")]
     nonimgs = [f for f in files_in if f not in imgs]
 
+    if c in {"ask", "search", "find"}:
+        q2 = a or (ctx.get("message_text") or "")
+        hits = []
+        try:
+            hits = hybrid_search(q2, k=5)
+        except Exception:
+            hits = []
+        return _answer_from_hits(q2, lang, hits)
+
     if c in {"help", "h", "?"}:
         return _help(lang)
     if c in {"links"}:
@@ -724,6 +738,22 @@ RULES: List[Tuple[re.Pattern, Any]] = [
 # Main entry
 # --------------------------------------------------------------------------------------
 
+def _answer_from_hits(q: str, lang: str, hits: list[dict], k: int = 5) -> str:
+    if not hits:
+        return ("I couldn’t find anything on the site for that." if lang == "en"
+                else "Site içinde bununla ilgili bir şey bulamadım.")
+    head = ("**From the site:**" if lang == "en" else "**Siteden bulduklarım:**")
+    rows = []
+    for h in hits[:k]:
+        title = (h.get("title") or "Result").strip()
+        url = h.get("url") or LINKS["home"]
+        snippet = (h.get("text") or h.get("snippet") or "").strip()
+        if len(snippet) > 260:
+            snippet = snippet[:260].rsplit(" ", 1)[0] + " …"
+        rows.append(f"- **{title}** — {snippet}\n  → {url}")
+    return _wrap_steps(head, "\n".join(rows))
+
+
 def reply_for(
         q: str,
         *,
@@ -775,6 +805,15 @@ def reply_for(
     for rx, fn in RULES:
         if rx.search(q or "") or rx.search(q_norm):
             return fn(q, LL, ctx, user_name)
+
+    # 4.5) Retrieval fallback (if not a command/rule/FAQ)
+    if len((q or "").strip()) >= 2:
+        try:
+            hits = hybrid_search(q, k=5)
+            if hits:
+                return _answer_from_hits(q, LL, hits)
+        except Exception:
+            pass
 
     # 5) Heuristic helpful nudge (inventory/achievements)
     parts: List[str] = []
