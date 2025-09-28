@@ -1,5 +1,4 @@
 # core/views.py
-import json
 import logging
 import re
 
@@ -11,15 +10,12 @@ from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
 from django.core.validators import validate_email
 from django.db.models import F
-from django.db.models import Sum
-from django.http import Http404, HttpResponse
-from django.http import JsonResponse
+from django.http import Http404
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.html import strip_tags
 from django.views.decorators.cache import cache_control
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
@@ -507,25 +503,58 @@ def scene_art_ensure_all(_request):
     return JsonResponse({"ok": True, "count": kicked, "keys": keys})
 
 
+# add imports near the top
+import json, logging
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Sum
+
+logger = logging.getLogger("django")
+
+
+# health check (optional but recommended for Render)
+def healthz(_): return HttpResponse("ok")
+
+
 @csrf_exempt
 def api_chat(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "method_not_allowed"}, status=405)
     try:
-        if request.method != "POST":
-            return JsonResponse({"error": "method_not_allowed"}, status=405)
-        data = json.loads(request.body or "{}")
-        q = (data.get("q") or "").strip()
-        if not q:
-            return JsonResponse({"error": "empty_query"}, status=400)
+        payload = json.loads(request.body or "{}")
+    except Exception as e:
+        logger.exception("bad json")
+        return JsonResponse({"error": "bad_json"}, status=400)
 
-        # ---- optional: pass game context (inv + achievements) for smarter replies
-        ctx = {}
-        if request.user.is_authenticated:
-            ctx["inv"] = get_user_inventory_rows(request.user)  # see Step 3B
-            ctx["ach"] = get_user_achievements_rows(request.user)  # see Step 3B
+    q = (payload.get("q") or "").strip()
+    if not q:
+        return JsonResponse({"error": "empty_query"}, status=400)
 
-        text = reply_for(q, user_name=request.user.username if request.user.is_authenticated else None,
-                         context=ctx)
+    # ---- collect optional game context, but never let it crash
+    ctx = {}
+    if request.user.is_authenticated:
+        try:
+            ctx["inv"] = get_user_inventory_rows(request.user)
+        except Exception as e:
+            logger.exception("inventory fetch failed")
+            ctx["inv"] = []
+        try:
+            ctx["ach"] = get_user_achievements_rows(request.user)
+        except Exception as e:
+            logger.exception("achievements fetch failed")
+            ctx["ach"] = []
+
+    try:
+        text = reply_for(
+            q,
+            user_name=request.user.username if request.user.is_authenticated else None,
+            context=ctx,
+        )
         return JsonResponse({"reply": text})
     except Exception as e:
-        # Never leak full trace to end-user but do give a short code
-        return JsonResponse({"error": "server_error"}, status=500)
+        logger.exception("bot reply failed")
+        # return a helpful error payload instead of a blank 500
+        return JsonResponse(
+            {"error": "bot_error", "detail": str(e)[:160]},
+            status=500
+        )

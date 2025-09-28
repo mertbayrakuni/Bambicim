@@ -686,6 +686,10 @@ window.marked = window.marked || {
                 }
                 if (!res.ok) {
                     let human = `Sunucu ${res.status} döndürdü.`;
+                    if (data && (data.error || data.detail)) {
+                        const bits = [data.error, data.detail].filter(Boolean).join(" · ");
+                        human += " " + bits;
+                    }
                     if (res.status === 403 && /csrf/i.test(textBlob)) {
                         human = "Güvenlik (CSRF) engeli. Çözüm: /api/chat CSRF muaf olmalı.";
                     }
