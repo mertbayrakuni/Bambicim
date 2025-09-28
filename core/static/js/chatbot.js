@@ -1,4 +1,5 @@
-// ---------- safe markdown fallback ----------
+/* Bambi Copilot – modal chat (SSE + uploads + voice + gallery) */
+/* Safe markdown fallback */
 window.marked = window.marked || {
     parse: (s) =>
         String(s || "")
@@ -9,7 +10,7 @@ window.marked = window.marked || {
 };
 
 (() => {
-    // ========= lightweight debug to on-screen panel (F9) =========
+    // ===== debug overlay (F9) =====
     const DBG = {box: null, body: null, lines: []};
     const dlog = (...a) => {
         try {
@@ -20,9 +21,7 @@ window.marked = window.marked || {
                 document.body.appendChild(el);
                 DBG.box = el;
                 DBG.body = el.querySelector(".bd");
-                window.addEventListener("keydown", (e) => {
-                    if (e.key === "F9") el.classList.toggle("open");
-                });
+                window.addEventListener("keydown", (e) => e.key === "F9" && el.classList.toggle("open"));
             }
             const line =
                 `[${new Date().toLocaleTimeString()}] ` +
@@ -43,7 +42,7 @@ window.marked = window.marked || {
         }
     };
 
-    // ========= utils =========
+    // ===== utils =====
     const getSid = () => {
         try {
             let sid = localStorage.getItem("bmb_sid");
@@ -60,7 +59,19 @@ window.marked = window.marked || {
     const normalizeMd = (s) =>
         (s || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\\n/g, "\n");
 
-    // Turn plain URLs & emails inside an HTML string into <a> tags (safe, DOM based)
+    const getCSRF = () => {
+        try {
+            return document.cookie
+                .split(";")
+                .map((c) => c.trim())
+                .find((c) => c.startsWith("csrftoken="))
+                ?.split("=")[1] || "";
+        } catch {
+            return "";
+        }
+    };
+
+    // Turn plain URLs/emails into <a> (DOM safe)
     function linkifyHTML(html) {
         const root = document.createElement("div");
         root.innerHTML = html;
@@ -80,7 +91,7 @@ window.marked = window.marked || {
                     if (!chunk) continue;
                     if (LINK_RE_G.test(chunk)) {
                         LINK_RE_G.lastIndex = 0;
-                        const m = chunk.match(/[),.;!?]+$/); // trim trailing punct.
+                        const m = chunk.match(/[),.;!?]+$/);
                         const trail = m ? m[0] : "";
                         if (trail) chunk = chunk.slice(0, -trail.length);
                         const a = document.createElement("a");
@@ -142,7 +153,7 @@ window.marked = window.marked || {
         chatEl.scrollTop = chatEl.scrollHeight;
     }
 
-    // Show non-image file list (assistant bubble)
+    // assistant file list (non-images)
     function addFileList(chatEl, files) {
         if (!chatEl || !files?.length) return;
         const wrap = document.createElement("div");
@@ -194,14 +205,11 @@ window.marked = window.marked || {
         const norm = normalizeMd(text || "").replace(/\n{3,}/g, "\n\n").trim();
         if (!norm) return [];
         const blocks = norm.split(/\n\s*\n/);
-        dlog(
-            "MD ▶",
-            blocks.map((b) => (b.slice(0, 80) + "…").replace(/\n/g, "⏎"))
-        );
+        dlog("MD ▶", blocks.map((b) => (b.slice(0, 80) + "…").replace(/\n/g, "⏎")));
         return blocks.slice(0, 12);
     }
 
-    // ========= gallery (optional) =========
+    // ===== gallery =====
     function resolveUrl(u) {
         if (!u) return null;
         if (/^https?:\/\//i.test(u)) return u;
@@ -287,7 +295,7 @@ window.marked = window.marked || {
         hardClampCaptions(wrap);
     }
 
-    // ========= modal shell (grow-from-origin) =========
+    // ===== modal shell =====
     const pageRect = (el) => {
         const r = el.getBoundingClientRect();
         return {left: r.left + scrollX, top: r.top + scrollY, width: r.width, height: r.height};
@@ -325,11 +333,11 @@ window.marked = window.marked || {
         document.body.append(overlay, panel);
         document.body.classList.add("bmb-modal-open");
 
-        const micBtn = panel.querySelector("#bmbMic");
-        if (micBtn) {
-            micBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2zM11 19h2v3h-2v-3z"/></svg>`;
-        }
+        panel.querySelector(".bmb-close").onclick = (e) => {
+            e.preventDefault();
+            close();
+        };
+        overlay.onclick = (e) => e.target === overlay && close();
 
         const originEl =
             typeof opts?.animateFrom === "string"
@@ -391,17 +399,9 @@ window.marked = window.marked || {
             }
             document.body.classList.remove("bmb-modal-open");
         }
-
-        panel.querySelector(".bmb-close").onclick = (e) => {
-            e.preventDefault();
-            close();
-        };
-        overlay.onclick = (e) => {
-            if (e.target === overlay) close();
-        };
     }
 
-    // ========= Mount core (HTTP only) =========
+    // ===== Mount (HTTP+SSE) =====
     function mount(root, opts) {
         if (!root)
             return {
@@ -417,44 +417,28 @@ window.marked = window.marked || {
         const waves = root.querySelector(".bmb-waves");
         const okB = root.querySelector("#bmbOk");
         const cancelB = root.querySelector("#bmbCancel");
-
-        // NEW: attachments
         const clip = root.querySelector(".bmb-clip");
         const fileInput = root.querySelector(".bmb-file");
         const picks = root.querySelector(".bmb-picks");
 
-        const fileIcon = (name, type) => {
-            if ((type || "").startsWith("image/")) return "🖼️";
-            if (/pdf$/i.test(name)) return "📕";
-            if (/\.(docx?|odt)$/i.test(name)) return "📘";
-            if (/\.(pptx?|odp)$/i.test(name)) return "📙";
-            if (/\.(csv|xls|xlsx)$/i.test(name)) return "📗";
-            if (/\.(md|txt)$/i.test(name)) return "📝";
-            return "📄";
-        };
-
+        // file chips
         function renderPicks() {
             picks.innerHTML = "";
             const files = fileInput?.files ? [...fileInput.files] : [];
-            if (!files.length) {
-                // nothing selected → ensure the row disappears
-                picks.classList.remove("has-picks"); // optional helper class
-                return;
-            }
-            picks.classList.add("has-picks");
-
+            if (!files.length) return;
             const frag = document.createDocumentFragment();
             files.forEach((f, idx) => {
                 const chip = document.createElement("span");
                 chip.className = "bmb-pick";
                 const ico = document.createElement("span");
                 ico.className = "ico";
-                ico.textContent = (/^image\//.test(f.type) ? "🖼️" :
-                    /\.pdf$/i.test(f.name) ? "📕" :
-                        /\.(docx?|odt)$/i.test(f.name) ? "📘" :
-                            /\.(pptx?|odp)$/i.test(f.name) ? "📙" :
-                                /\.(csv|xlsx?|tsv)$/i.test(f.name) ? "📗" :
-                                    /\.(md|txt)$/i.test(f.name) ? "📝" : "📄");
+                ico.textContent =
+                    /^image\//.test(f.type) ? "🖼️" :
+                        /\.pdf$/i.test(f.name) ? "📕" :
+                            /\.(docx?|odt)$/i.test(f.name) ? "📘" :
+                                /\.(pptx?|odp)$/i.test(f.name) ? "📙" :
+                                    /\.(csv|xlsx?|tsv)$/i.test(f.name) ? "📗" :
+                                        /\.(md|txt)$/i.test(f.name) ? "📝" : "📄";
                 const nm = document.createElement("span");
                 nm.textContent = f.name;
                 const rm = document.createElement("button");
@@ -476,7 +460,7 @@ window.marked = window.marked || {
         clip?.addEventListener("click", () => fileInput?.click());
         fileInput?.addEventListener("change", renderPicks);
 
-        // ===== Voice (SR) + animated waves =====
+        // === Voice (SR + waves)
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         let rec = null,
             listening = false,
@@ -652,7 +636,7 @@ window.marked = window.marked || {
             if (listening) srStop();
         });
 
-        // ===== TTS hooks (disabled unless you add /tts) =====
+        // ===== TTS (optional, toggled from header)
         const panelEl = root.closest(".bmb-panel");
         const ttsBtn = panelEl?.querySelector(".bmb-tts");
         const tts = {
@@ -665,9 +649,7 @@ window.marked = window.marked || {
             audio: null,
             lastUrl: null,
         };
-
         const ttsSupported = () => "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
-
         const listVoicesSafe = () => {
             try {
                 return speechSynthesis.getVoices() || [];
@@ -675,7 +657,6 @@ window.marked = window.marked || {
                 return [];
             }
         };
-
         const rankVoice = (v) => {
             let s = 0;
             const n = (v.name || "").toLowerCase(),
@@ -684,10 +665,10 @@ window.marked = window.marked || {
             if (l.includes("tr-tr")) s += 2;
             if (/seda|filiz|yelda|female|kadin/.test(n)) s += 6;
             if (/google|microsoft|online|natural/.test(n)) s += 2;
-            if (!l.startsWith("tr") && /samantha|serena|victoria|aria|jenny|zira|emma|amy|joanna/.test(n)) s += 1;
+            if (!l.startsWith("tr") && /samantha|serena|victoria|aria|jenny|zira|emma|amy|joanna/.test(n))
+                s += 1;
             return s;
         };
-
         const pickVoice = (pref) => {
             const vs = listVoicesSafe();
             if (!vs.length) return null;
@@ -712,38 +693,6 @@ window.marked = window.marked || {
             }
         }
 
-        function cleanForTTS(s) {
-            return (s || "")
-                .replace(/!\[[^\]]*\]\([^)]+\)/g, "$1")
-                .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-                .replace(/https?:\/\/\S+|www\.\S+|\S+@\S+/g, " ")
-                .replace(/[=+\-/*<>|\\^~`_%$€£¥©®™°\[\]{}()@#:;]/g, " ")
-                .replace(/[`*_#>{}<~^]+/g, " ")
-                .replace(/[!?]{2,}/g, "!")
-                .replace(/\.{3,}/g, ".")
-                .replace(/\s+/g, " ")
-                .trim();
-        }
-
-        function ttsStop() {
-            try {
-                speechSynthesis.cancel?.();
-            } catch {
-            }
-            try {
-                if (tts.audio) {
-                    tts.audio.pause();
-                    tts.audio.src = "";
-                    tts.audio = null;
-                }
-                if (tts.lastUrl) {
-                    URL.revokeObjectURL(tts.lastUrl);
-                    tts.lastUrl = null;
-                }
-            } catch {
-            }
-        }
-
         function updateTtsBtn() {
             if (!ttsBtn) return;
             ttsBtn.classList.toggle("on", tts.enabled);
@@ -756,7 +705,24 @@ window.marked = window.marked || {
             if (ev.altKey) return;
             tts.enabled = !tts.enabled;
             if (tts.enabled && ttsSupported()) initVoicesOnce();
-            if (!tts.enabled) ttsStop();
+            if (!tts.enabled) {
+                try {
+                    speechSynthesis.cancel?.();
+                } catch {
+                }
+                try {
+                    if (tts.audio) {
+                        tts.audio.pause();
+                        tts.audio.src = "";
+                        tts.audio = null;
+                    }
+                    if (tts.lastUrl) {
+                        URL.revokeObjectURL(tts.lastUrl);
+                        tts.lastUrl = null;
+                    }
+                } catch {
+                }
+            }
             updateTtsBtn();
         });
         ttsBtn?.addEventListener("click", (ev) => {
@@ -779,118 +745,8 @@ window.marked = window.marked || {
         });
         updateTtsBtn();
         if (ttsSupported()) initVoicesOnce();
-        const ttsEndpoint = location.origin + "/tts";
 
-        async function speakAndGetDuration(text) {
-            if (!tts.enabled)
-                return {
-                    play: async () => {
-                    },
-                    durationMs: 0,
-                };
-            const clean = cleanForTTS(text || "");
-            if (!clean)
-                return {
-                    play: async () => {
-                    },
-                    durationMs: 0,
-                };
-            try {
-                const res = await fetch(ttsEndpoint, {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({text: clean, provider: "polly", voice: "Burcu"}),
-                });
-                if (!res.ok)
-                    return {
-                        play: async () => {
-                        },
-                        durationMs: 0,
-                    };
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const probe = new Audio();
-                const durationMs = await new Promise((r) => {
-                    probe.preload = "metadata";
-                    probe.src = url;
-                    probe.onloadedmetadata = () => r(Math.max(0, (probe.duration || 0) * 1000));
-                    probe.onerror = () => r(0);
-                });
-                const play = () =>
-                    new Promise((resolve) => {
-                        try {
-                            if (tts.audio) tts.audio.pause();
-                        } catch {
-                        }
-                        const a = new Audio(url);
-                        a.onended = () => {
-                            try {
-                                URL.revokeObjectURL(url);
-                            } catch {
-                            }
-                            resolve();
-                        };
-                        a.play().catch(() => resolve());
-                        tts.audio = a;
-                    });
-                return {play, durationMs: durationMs || Math.max(1200, clean.length * 55)};
-            } catch {
-                return {
-                    play: async () => {
-                    },
-                    durationMs: 0,
-                };
-            }
-        }
-
-        // ===== typewriter (synced with optional audio) =====
-        function typeWriter(el, text, msPerChar = 16) {
-            return new Promise((res) => {
-                const full = normalizeMd(text || "");
-                let i = 0,
-                    len = full.length;
-                const id = setInterval(() => {
-                    i++;
-                    el.innerHTML = window.marked.parse(full.slice(0, i));
-                    if (i >= len) {
-                        clearInterval(id);
-                        // turn plain URLs/emails into anchors after final render
-                        el.innerHTML = linkifyHTML(el.innerHTML);
-                        res();
-                    }
-                }, msPerChar);
-            });
-        }
-
-        const renderAssistantReply = async (chatEl, fullText) => {
-            const steps = splitSteps(fullText).slice(0, 8);
-            for (const step of steps) {
-                const remove = showTyping(chatEl);
-                const w = document.createElement("div");
-                w.className = "bmb-b a";
-                chatEl.appendChild(w);
-                chatEl.scrollTop = chatEl.scrollHeight;
-                remove();
-                let msPerChar = 16;
-                let playAudio = async () => {
-                };
-                try {
-                    const {play, durationMs} = await speakAndGetDuration(step);
-                    playAudio = play;
-                    if (durationMs && step.length) {
-                        msPerChar = Math.min(Math.max(Math.ceil(durationMs / step.length), 8), 64);
-                    }
-                } catch {
-                }
-                await Promise.all([typeWriter(w, step, msPerChar), playAudio()]);
-                const ts = document.createElement("div");
-                ts.className = "bmb-ts";
-                ts.textContent = new Date().toLocaleTimeString();
-                w.appendChild(ts);
-            }
-        };
-
-        // ===== HTTP transport (JSON or multipart when files are present) =====
+        // ===== Fallback: plain HTTP responder (still used by initialText)
         async function httpSend(txt, files) {
             try {
                 let res;
@@ -899,11 +755,20 @@ window.marked = window.marked || {
                     fd.append("q", txt || "");
                     fd.append("client_id", getSid());
                     [...files].forEach((f) => fd.append("files", f, f.name));
-                    res = await fetch("/api/chat", {method: "POST", body: fd});
+                    res = await fetch("/api/chat", {
+                        method: "POST",
+                        body: fd,
+                        credentials: "same-origin",
+                        headers: {"X-CSRFToken": getCSRF()},
+                    });
                 } else {
                     res = await fetch("/api/chat", {
                         method: "POST",
-                        headers: {"Content-Type": "application/json"},
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": getCSRF(),
+                        },
+                        credentials: "same-origin",
                         body: JSON.stringify({q: txt, client_id: getSid()}),
                     });
                 }
@@ -922,23 +787,20 @@ window.marked = window.marked || {
                         human += " " + bits;
                     }
                     if (res.status === 403 && /csrf/i.test(textBlob)) {
-                        human = "Güvenlik (CSRF) engeli. Çözüm: /api/chat CSRF muaf olmalı.";
+                        human = "Güvenlik (CSRF) engeli. Çözüm: /api/chat CSRF muaf olmalı veya token gönderilmeli.";
                     }
                     await renderAssistantReply(chat, "Hata: " + human);
                     dlog("HTTP error", res.status, textBlob.slice(0, 400));
                     return;
                 }
-                const reply = (data && typeof data.reply === "string") ? data.reply : "";
-                await renderAssistantReply(
-                    chat,
-                    reply || "Üzgünüm, bir aksaklık oldu. Birazdan tekrar dener misin?"
-                );
+                const reply = data && typeof data.reply === "string" ? data.reply : "";
+                await renderAssistantReply(chat, reply || "Üzgünüm, bir aksaklık oldu. Birazdan tekrar dener misin?");
 
-                // images (gallery)
+                // images
                 const urls = Array.isArray(data?.urls) ? data.urls : [];
                 if (urls.length) addImageGallery(chat, urls);
 
-                // non-image files (list)
+                // non-images
                 const filesMeta = Array.isArray(data?.files) ? data.files : [];
                 const nonImages = filesMeta.filter((f) => !(f.content_type || "").startsWith("image/"));
                 if (nonImages.length) addFileList(chat, nonImages);
@@ -948,15 +810,175 @@ window.marked = window.marked || {
             }
         }
 
+        // ===== SSE (Copilot)
+        let activeStream = null;
+
+        async function sseSend(txt, fileInput, chatEl, onStart, onDone) {
+            // cancel previous stream
+            try {
+                activeStream?.abort();
+            } catch {
+            }
+            const ctrl = new AbortController();
+            activeStream = ctrl;
+
+            // upload files (optional)
+            let conversation_id = localStorage.getItem("bmb_convo") || "";
+            if (fileInput && fileInput.files && fileInput.files.length) {
+                const fd = new FormData();
+                [...fileInput.files].forEach((f) => fd.append("files", f, f.name));
+                if (conversation_id) fd.append("conversation_id", conversation_id);
+                const up = await fetch("/api/copilot/upload", {
+                    method: "POST",
+                    body: fd,
+                    credentials: "same-origin",
+                    headers: {"X-CSRFToken": getCSRF()},
+                    signal: ctrl.signal,
+                }).catch(() => null);
+
+                if (up && up.ok) {
+                    const files = await up.json().catch(() => []);
+                    if (files?.[0]?.conversation_id) {
+                        conversation_id = files[0].conversation_id;
+                        localStorage.setItem("bmb_convo", conversation_id);
+                    }
+                }
+            }
+
+            // start stream
+            const body = JSON.stringify({conversation_id, message: txt, client_id: getSid()});
+            const resp = await fetch("/api/copilot/chat", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "text/event-stream",
+                    "X-CSRFToken": getCSRF(),
+                },
+                credentials: "same-origin",
+                body,
+                signal: ctrl.signal,
+            }).catch(() => null);
+
+            if (!resp || !resp.ok || !resp.body) {
+                await renderAssistantReply(chatEl, "Üzgünüm, akışı başlatamadım.");
+                onDone?.();
+                return;
+            }
+
+            onStart?.();
+
+            const reader = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "",
+                bucket = "";
+
+            // target assistant bubble
+            const w = document.createElement("div");
+            w.className = "bmb-b a";
+            chatEl.appendChild(w);
+
+            function flushBucket() {
+                if (!bucket) return;
+                w.innerHTML = linkifyHTML(window.marked.parse(bucket));
+                chatEl.scrollTop = chatEl.scrollHeight;
+            }
+
+            try {
+                while (true) {
+                    const {value, done} = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, {stream: true});
+
+                    const parts = buffer.split("\n\n");
+                    buffer = parts.pop();
+                    for (const raw of parts) {
+                        const lines = raw.split("\n");
+                        let event = "message",
+                            data = "";
+                        for (const ln of lines) {
+                            if (ln.startsWith("event:")) event = ln.slice(6).trim();
+                            if (ln.startsWith("data:")) data += ln.slice(5).trim();
+                        }
+                        if (event === "delta") {
+                            try {
+                                const j = JSON.parse(data);
+                                bucket += j.text || "";
+                                flushBucket();
+                            } catch {
+                            }
+                        } else if (event === "done") {
+                            try {
+                                const j = JSON.parse(data);
+                                if (j.conversation_id) localStorage.setItem("bmb_convo", j.conversation_id);
+                            } catch {
+                            }
+                            flushBucket();
+                            const ts = document.createElement("div");
+                            ts.className = "bmb-ts";
+                            ts.textContent = new Date().toLocaleTimeString();
+                            w.appendChild(ts);
+                            onDone?.();
+                        }
+                    }
+                }
+            } catch (e) {
+                if (ctrl.signal.aborted) {
+                    dlog("SSE aborted");
+                } else {
+                    dlog("SSE error", e);
+                    await renderAssistantReply(chatEl, "\n\n_(Akış kesildi. Tekrar deneyebilirsiniz.)_");
+                }
+            } finally {
+                if (activeStream === ctrl) activeStream = null;
+            }
+        }
+
+        // ===== typewriter used by HTTP fallback
+        function typeWriter(el, text, msPerChar = 16) {
+            return new Promise((res) => {
+                const full = normalizeMd(text || "");
+                let i = 0,
+                    len = full.length;
+                const id = setInterval(() => {
+                    i++;
+                    el.innerHTML = window.marked.parse(full.slice(0, i));
+                    if (i >= len) {
+                        clearInterval(id);
+                        el.innerHTML = linkifyHTML(el.innerHTML);
+                        res();
+                    }
+                }, msPerChar);
+            });
+        }
+
+        const renderAssistantReply = async (chatEl, fullText) => {
+            const steps = splitSteps(fullText).slice(0, 8);
+            for (const step of steps) {
+                const remove = showTyping(chatEl);
+                const w = document.createElement("div");
+                w.className = "bmb-b a";
+                chatEl.appendChild(w);
+                chatEl.scrollTop = chatEl.scrollHeight;
+                remove();
+                let msPerChar = 16;
+                await typeWriter(w, step, msPerChar);
+                const ts = document.createElement("div");
+                ts.className = "bmb-ts";
+                ts.textContent = new Date().toLocaleTimeString();
+                w.appendChild(ts);
+            }
+        };
+
+        // ===== send
         function send() {
             const txt = (input?.value || "").trim();
             const files = fileInput?.files || null;
             if (!txt && (!files || files.length === 0)) return;
 
-            // Show user's message bubble
+            // user's bubble
             if (txt) addBubble(chat, txt, "user");
 
-            // Quick user-side image previews (before send)
+            // quick previews (images)
             if (files && files.length) {
                 const imgUrls = [...files]
                     .filter((f) => f.type.startsWith("image/"))
@@ -983,12 +1005,19 @@ window.marked = window.marked || {
             }
 
             const removeTyping = showTyping(chat);
-            httpSend(txt, files).finally(() => {
-                try {
-                    removeTyping();
-                } catch {
+            sseSend(
+                txt,
+                fileInput,
+                chat,
+                () => {
+                },
+                () => {
+                    try {
+                        removeTyping();
+                    } catch {
+                    }
                 }
-            });
+            );
 
             if (input) input.value = "";
             if (fileInput) {
@@ -1035,11 +1064,15 @@ window.marked = window.marked || {
                     mo.disconnect();
                 } catch {
                 }
+                try {
+                    activeStream?.abort();
+                } catch {
+                }
             },
         };
     }
 
-    // expose (kept name so your launcher keeps working)
+    // expose for launcher
     window.TTWChatbot = {openModal, mount};
     try {
         window.dispatchEvent(new Event("bmb-ready"));

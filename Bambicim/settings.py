@@ -84,6 +84,8 @@ INSTALLED_APPS = [
     "portfolio",
     "django.contrib.sitemaps",
     "channels",
+    "copilot",
+    "rest_framework",
 ]
 
 MIDDLEWARE = [
@@ -162,6 +164,13 @@ USE_TZ = True
 # -----------------------------------------------------------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"  # output only
+
+# uploads (adjust paths if you already have these)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# feature flag (optional)
+BAMBI_COPILOT_ENABLED = True
 
 # Enable long-term caching with hashed filenames in production
 if not DEBUG:
