@@ -1,0 +1,43 @@
+cronJobs:
+  - name: copilot-index
+    schedule: "0 */12 * * *"
+    env: python
+    rootDir: src
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: >
+      python manage.py copilot_index --base https://bambicim.com --paths / /#work /#game /#contact
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: Bambicim.settings
+      - key: DATABASE_URL
+        fromDatabase:
+          name: YOUR-RENDER-DB
+          property: connectionString
+
+  - name: import-scenes-nightly
+    schedule: "15 1 * * *"
+    env: python
+    rootDir: src
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python manage.py import_scenes"
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: Bambicim.settings
+      - key: DATABASE_URL
+        fromDatabase:
+          name: YOUR-RENDER-DB
+          property: connectionString
+
+  - name: regen-scene-art
+    schedule: "30 2 * * *"
+    env: python
+    rootDir: src
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python manage.py regen_scene_art --all"
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: Bambicim.settings
+      - key: DATABASE_URL
+        fromDatabase:
+          name: YOUR-RENDER-DB
+          property: connectionString
