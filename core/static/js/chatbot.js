@@ -61,16 +61,87 @@ window.marked = window.marked || {
     const normalizeMd = (s) =>
         (s || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\\n/g, "\n");
 
+    // Turn plain URLs & emails inside an HTML string into <a> tags (safe, DOM based)
+    function linkifyHTML(html) {
+        const root = document.createElement("div");
+        root.innerHTML = html;
+
+        const LINK_RE_G = /((?:https?:\/\/|www\.)[^\s<>()]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
+        const isEmail = s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+        const isUrl = s => /^(?:https?:\/\/|www\.)/i.test(s);
+
+        function process(node) {
+            // only touch text nodes (and skip inside existing links/scripts/styles)
+            if (node.nodeType === 3) {
+                const text = node.nodeValue;
+                const parts = text.split(LINK_RE_G);
+                if (parts.length === 1) return;
+
+                const frag = document.createDocumentFragment();
+                for (let i = 0; i < parts.length; i++) {
+                    let chunk = parts[i];
+                    if (!chunk) continue;
+
+                    // if this piece is a link/email candidate, wrap it
+                    if (LINK_RE_G.test(chunk)) {
+                        LINK_RE_G.lastIndex = 0; // reset global regex
+                        // strip trailing punctuation (common in prose)
+                        const m = chunk.match(/[),.;!?]+$/);
+                        const trail = m ? m[0] : "";
+                        if (trail) chunk = chunk.slice(0, -trail.length);
+
+                        const a = document.createElement("a");
+                        if (isEmail(chunk)) {
+                            a.href = `mailto:${chunk}`;
+                            a.textContent = chunk;
+                        } else if (isUrl(chunk)) {
+                            const href = chunk.startsWith("www.") ? `https://${chunk}` : chunk;
+                            a.href = href;
+                            a.textContent = chunk;
+                        } else {
+                            frag.appendChild(document.createTextNode(parts[i]));
+                            continue;
+                        }
+                        a.target = "_blank";
+                        a.rel = "noopener noreferrer";
+                        frag.appendChild(a);
+                        if (trail) frag.appendChild(document.createTextNode(trail));
+                    } else {
+                        frag.appendChild(document.createTextNode(chunk));
+                    }
+                }
+                node.parentNode.replaceChild(frag, node);
+                return;
+            }
+
+            if (node.nodeType === 1 && node.nodeName !== "A" && node.nodeName !== "SCRIPT" && node.nodeName !== "STYLE") {
+                for (let c = node.firstChild; c;) {
+                    const n = c.nextSibling;
+                    process(c);
+                    c = n;
+                }
+            }
+        }
+
+        process(root);
+        return root.innerHTML;
+    }
+
     // ========= bubbles & typing =========
     function addBubble(chatEl, text, who) {
         if (!chatEl) return;
         const w = document.createElement("div");
         w.className = "bmb-b " + (who === "user" ? "u" : "a");
-        w.innerHTML = marked.parse(normalizeMd(text || ""));
+
+        const raw = normalizeMd(text || "");
+        const html = window.marked.parse(raw);
+        w.innerHTML = linkifyHTML(html);
+
         const ts = document.createElement("div");
         ts.className = "bmb-ts";
         ts.textContent = new Date().toLocaleTimeString();
         w.appendChild(ts);
+
         chatEl.appendChild(w);
         chatEl.scrollTop = chatEl.scrollHeight;
     }
@@ -684,15 +755,16 @@ window.marked = window.marked || {
 
         // ===== typewriter (synced with optional audio) =====
         function typeWriter(el, text, msPerChar = 16) {
-            return new Promise((res) => {
+            return new Promise(res => {
                 const full = normalizeMd(text || "");
-                let i = 0,
-                    len = full.length;
+                let i = 0, len = full.length;
                 const id = setInterval(() => {
                     i++;
-                    el.innerHTML = marked.parse(full.slice(0, i));
+                    el.innerHTML = window.marked.parse(full.slice(0, i));
                     if (i >= len) {
                         clearInterval(id);
+                        // turn plain URLs/emails into anchors after final render
+                        el.innerHTML = linkifyHTML(el.innerHTML);
                         res();
                     }
                 }, msPerChar);
