@@ -67,30 +67,57 @@ def search_api(request: HttpRequest):
     return JsonResponse({"q": q, "results": rsearch(q, k)})
 
 
+# add near the other imports
+import unicodedata
+
+
+def _norm(s: str) -> str:
+    s = (s or "").lower()
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(ch for ch in s if not unicodedata.combining(ch))
+
+
+GREETINGS = {
+    "merhaba", "selam", "selamlar", "hey", "hi", "hello", "slm", "nbr", "nasilsin", "nasılsın"
+}
+
+
 def _assistant_reply(user_text: str) -> tuple[str, list[dict]]:
     """
-    Dumb-but-useful assistant: retrieve and craft a markdown reply with citations.
-    You can swap this with your LLM later; the SSE plumbing stays the same.
+    Retrieval-first; graceful UX for greetings / vague queries.
     """
+    nt = _norm(user_text)
+
+    # 1) Friendly greeting / vague intent
+    if any(tok in GREETINGS for tok in nt.split()) or len(nt) <= 2:
+        reply = (
+            "**Bambi Copilot** burada 💖\n\n"
+            "Sana siteden hızlıca yardımcı olabilirim. Örnekler:\n"
+            "- **Work** sayfasını özetle → `work sayfasını özetle`\n"
+            "- **Game** hakkında ipucu ver → `oyun hakkında anlat`\n"
+            "- **İletişim** bilgileri → `iletişim e-postası nedir?`\n\n"
+            "Veya istediğini yaz; uygun sayfaları bulup kaynaklarla yanıtlayayım."
+        )
+        return reply, []
+
+    # 2) Retrieval route (default)
     cites = rsearch(user_text, 4)
-    parts = []
-    if "http" in user_text or "work" in user_text.lower() or "oyun" in user_text.lower():
-        parts.append("**Hızlı düşünceler**")
-        parts.append("- İçeriği taradım; aşağıdaki kaynaklar faydalı görünüyor.")
-    else:
-        parts.append("**Bambi Copilot** burada 💖 Kısa bir özet hazırlıyorum…")
+    parts = ["**Hızlı düşünceler**", "- İçeriği taradım; aşağıdaki kaynaklar faydalı görünüyor."]
 
     if cites:
         parts.append("\n**Kaynaklar**")
         for c in cites:
-            title = c["title"] or c["url"]
-            url = c["url"] or ""
-            parts.append(f"- [{title}]({url}) — {c['snippet']}")
+            title = c.get("title") or c.get("url", "")
+            url = c.get("url", "")
+            parts.append(f"- [{title}]({url}) — {c.get('snippet', '')}")
     else:
-        parts.append("\nKaynak bulunamadı, daha fazla bağlam verir misin?")
+        parts.append(
+            "\nKaynak bulunamadı. Şunları deneyebilirsin:\n"
+            "- `work sayfası`\n- `oyun`\n- `iletişim`\n"
+            "Ya da daha fazla bağlam ver (konu/anahtar sözcük)."
+        )
 
-    reply = "\n".join(parts)
-    return reply, cites
+    return "\n".join(parts), cites
 
 
 @csrf_exempt
@@ -126,7 +153,7 @@ def chat_sse(request: HttpRequest):
 
     def stream() -> Iterable[bytes]:
         # send a small greeting first (fast TTFB)
-        yield _sse("delta", {"text": "Merhaba! Bir göz atıyorum…"}).encode("utf-8")
+        yield _sse("delta", {"text": "🪄 Hazırlanıyorum…"}).encode("utf-8")
         time.sleep(0.15)
 
         # fake a tool call if we used retrieval
