@@ -171,8 +171,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # feature flag (optional)
 BAMBI_COPILOT_ENABLED = True
-+COPILOT_MAX_DOCS = int(os.getenv("COPILOT_MAX_DOCS", 40))
-+COPILOT_LANG = os.getenv("COPILOT_LANG", "tr")  # "tr" or "en"
+COPILOT_MAX_DOCS = int(os.getenv("COPILOT_MAX_DOCS", 40))
+COPILOT_LANG = os.getenv("COPILOT_LANG", "tr")  # "tr" or "en"
 if not DEBUG:
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
