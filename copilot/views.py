@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import Conversation, Message, Attachment
+from .retrieval import answer as rag_answer
 from .retrieval import search as rsearch
 
 
@@ -83,41 +84,8 @@ GREETINGS = {
 
 
 def _assistant_reply(user_text: str) -> tuple[str, list[dict]]:
-    """
-    Retrieval-first; graceful UX for greetings / vague queries.
-    """
-    nt = _norm(user_text)
-
-    # 1) Friendly greeting / vague intent
-    if any(tok in GREETINGS for tok in nt.split()) or len(nt) <= 2:
-        reply = (
-            "**Bambi Copilot** burada 💖\n\n"
-            "Sana siteden hızlıca yardımcı olabilirim. Örnekler:\n"
-            "- **Work** sayfasını özetle → `work sayfasını özetle`\n"
-            "- **Game** hakkında ipucu ver → `oyun hakkında anlat`\n"
-            "- **İletişim** bilgileri → `iletişim e-postası nedir?`\n\n"
-            "Veya istediğini yaz; uygun sayfaları bulup kaynaklarla yanıtlayayım."
-        )
-        return reply, []
-
-    # 2) Retrieval route (default)
-    cites = rsearch(user_text, 4)
-    parts = ["**Hızlı düşünceler**", "- İçeriği taradım; aşağıdaki kaynaklar faydalı görünüyor."]
-
-    if cites:
-        parts.append("\n**Kaynaklar**")
-        for c in cites:
-            title = c.get("title") or c.get("url", "")
-            url = c.get("url", "")
-            parts.append(f"- [{title}]({url}) — {c.get('snippet', '')}")
-    else:
-        parts.append(
-            "\nKaynak bulunamadı. Şunları deneyebilirsin:\n"
-            "- `work sayfası`\n- `oyun`\n- `iletişim`\n"
-            "Ya da daha fazla bağlam ver (konu/anahtar sözcük)."
-        )
-
-    return "\n".join(parts), cites
+    reply, cites = rag_answer(user_text, 6)
+    return reply, cites
 
 
 @csrf_exempt

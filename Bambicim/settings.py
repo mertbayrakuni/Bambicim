@@ -171,8 +171,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # feature flag (optional)
 BAMBI_COPILOT_ENABLED = True
-
-# Enable long-term caching with hashed filenames in production
++COPILOT_MAX_DOCS = int(os.getenv("COPILOT_MAX_DOCS", 40))
++COPILOT_LANG = os.getenv("COPILOT_LANG", "tr")  # "tr" or "en"
 if not DEBUG:
     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
