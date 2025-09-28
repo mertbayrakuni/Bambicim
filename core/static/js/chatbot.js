@@ -1,6 +1,11 @@
 // ---------- safe markdown fallback ----------
 window.marked = window.marked || {
-    parse: s => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")
+    parse: (s) =>
+        String(s || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\n/g, "<br>"),
 };
 
 (() => {
@@ -11,30 +16,35 @@ window.marked = window.marked || {
             if (!DBG.box) {
                 const el = document.createElement("div");
                 el.className = "bmb-debug";
-                el.innerHTML = '<div class="hd">Bambi Debug (F9)</div><div class="bd"></div>';
+                el.innerHTML =
+                    '<div class="hd">Bambi Debug (F9)</div><div class="bd"></div>';
                 document.body.appendChild(el);
                 DBG.box = el;
                 DBG.body = el.querySelector(".bd");
-                window.addEventListener("keydown", e => {
+                window.addEventListener("keydown", (e) => {
                     if (e.key === "F9") el.classList.toggle("open");
                 });
             }
-            const line = `[${new Date().toLocaleTimeString()}] ` + a.map(x => {
-                try {
-                    return typeof x === "string" ? x : JSON.stringify(x);
-                } catch {
-                    return String(x);
-                }
-            }).join(" ");
+            const line =
+                `[${new Date().toLocaleTimeString()}] ` +
+                a
+                    .map((x) => {
+                        try {
+                            return typeof x === "string" ? x : JSON.stringify(x);
+                        } catch {
+                            return String(x);
+                        }
+                    })
+                    .join(" ");
             DBG.lines.push(line);
             if (DBG.lines.length > 400) DBG.lines.shift();
             DBG.body.textContent = DBG.lines.join("\n");
             DBG.body.scrollTop = DBG.body.scrollHeight;
-            // no console.log spam anymore
         } catch {
         }
     };
 
+    // ========= utils =========
     const getSid = () => {
         try {
             let sid = localStorage.getItem("bmb_sid");
@@ -47,7 +57,9 @@ window.marked = window.marked || {
             return Math.random().toString(36).slice(2);
         }
     };
-    const normalizeMd = s => (s || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\\n/g, "\n");
+
+    const normalizeMd = (s) =>
+        (s || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\\n/g, "\n");
 
     // ========= bubbles & typing =========
     function addBubble(chatEl, text, who) {
@@ -66,7 +78,8 @@ window.marked = window.marked || {
     function showTyping(chatEl) {
         const b = document.createElement("div");
         b.className = "bmb-b a bmb-typing";
-        b.innerHTML = '<span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>';
+        b.innerHTML =
+            '<span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>';
         chatEl.appendChild(b);
         chatEl.scrollTop = chatEl.scrollHeight;
         return () => {
@@ -81,7 +94,7 @@ window.marked = window.marked || {
         const norm = normalizeMd(text || "").replace(/\n{3,}/g, "\n\n").trim();
         if (!norm) return [];
         const blocks = norm.split(/\n\s*\n/);
-        dlog("MD ▶", blocks.map(b => (b.slice(0, 80) + "…").replace(/\n/g, "⏎")));
+        dlog("MD ▶", blocks.map((b) => (b.slice(0, 80) + "…").replace(/\n/g, "⏎")));
         return blocks.slice(0, 12);
     }
 
@@ -106,8 +119,12 @@ window.marked = window.marked || {
                 }
                 const maxH = Math.round(lh * 2);
                 if (el.scrollHeight > maxH + 1) {
-                    const full = (el.getAttribute("data-full") || el.textContent || "").trim().replace(/\s+/g, " ");
-                    let lo = 0, hi = full.length, best = "";
+                    const full = (el.getAttribute("data-full") || el.textContent || "")
+                        .trim()
+                        .replace(/\s+/g, " ");
+                    let lo = 0,
+                        hi = full.length,
+                        best = "";
                     while (lo <= hi) {
                         const mid = (lo + hi) >> 1;
                         el.textContent = full.slice(0, mid).trim() + "…";
@@ -131,7 +148,7 @@ window.marked = window.marked || {
         const grid = document.createElement("div");
         grid.className = "bmb-gallery";
         items.slice(0, 12).forEach((it) => {
-            const obj = typeof it === "string" ? {image: it, adres: it} : (it || {});
+            const obj = typeof it === "string" ? {image: it, adres: it} : it || {};
             const imgSrc = resolveUrl(obj.image || obj.adres);
             const href = resolveUrl(obj.adres || obj.image);
             if (!imgSrc) return;
@@ -208,13 +225,23 @@ window.marked = window.marked || {
         <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2zM11 19h2v3h-2v-3z"/></svg>`;
         }
 
-        const originEl = typeof opts?.animateFrom === "string" ? document.querySelector(opts.animateFrom) : (opts?.animateFrom || null);
-        const doGrow = originEl && originEl.getBoundingClientRect().width > 0 && originEl.getBoundingClientRect().height > 0;
+        const originEl =
+            typeof opts?.animateFrom === "string"
+                ? document.querySelector(opts.animateFrom)
+                : opts?.animateFrom || null;
+        const doGrow =
+            originEl &&
+            originEl.getBoundingClientRect().width > 0 &&
+            originEl.getBoundingClientRect().height > 0;
 
         function setFromOrigin() {
-            const t = panel.getBoundingClientRect(), p = pageRect(panel), o = pageRect(originEl);
-            const sx = Math.max(0.01, o.width / t.width), sy = Math.max(0.01, o.height / t.height);
-            const dx = (o.left - p.left), dy = (o.top - p.top);
+            const t = panel.getBoundingClientRect(),
+                p = pageRect(panel),
+                o = pageRect(originEl);
+            const sx = Math.max(0.01, o.width / t.width),
+                sy = Math.max(0.01, o.height / t.height);
+            const dx = o.left - p.left,
+                dy = o.top - p.top;
             panel.style.transformOrigin = "top left";
             panel.style.transform = `translate(${dx}px,${dy}px) scale(${sx},${sy})`;
             panel.style.opacity = "0.001";
@@ -270,10 +297,12 @@ window.marked = window.marked || {
 
     // ========= Mount core (HTTP only) =========
     function mount(root, opts) {
-        if (!root) return {
-            destroy() {
-            }
-        };
+        if (!root)
+            return {
+                destroy() {
+                },
+            };
+
         const chat = root.querySelector(".bmb-log");
         const input = root.querySelector(".bmb-inp");
         const sendB = root.querySelector(".bmb-send");
@@ -285,19 +314,25 @@ window.marked = window.marked || {
 
         // ===== Voice (SR) + animated waves =====
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let rec = null, listening = false, starting = false;
-        let finalBuf = "", interimBuf = "";
+        let rec = null,
+            listening = false,
+            starting = false;
+        let finalBuf = "",
+            interimBuf = "";
         let srKeepAlive = false;
         let mediaStream = null;
 
-        let audioCtx = null, analyser = null, rafId = 0;
+        let audioCtx = null,
+            analyser = null,
+            rafId = 0;
 
         function startWaves(stream) {
             if (!waves) return;
             try {
                 let bars = Array.from(waves.querySelectorAll(".bar"));
                 if (bars.length === 0) {
-                    const target = 28, frag = document.createDocumentFragment();
+                    const target = 28,
+                        frag = document.createDocumentFragment();
                     for (let i = 0; i < target; i++) {
                         const b = document.createElement("span");
                         b.className = "bar";
@@ -306,7 +341,8 @@ window.marked = window.marked || {
                     waves.appendChild(frag);
                     bars = Array.from(waves.querySelectorAll(".bar"));
                 }
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (!audioCtx)
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 const src = audioCtx.createMediaStreamSource(stream);
                 analyser = audioCtx.createAnalyser();
                 analyser.fftSize = 1024;
@@ -319,7 +355,7 @@ window.marked = window.marked || {
                     for (let i = 0; i < bars.length; i++) {
                         let sum = 0;
                         for (let j = i * step; j < (i + 1) * step; j++) sum += freq[j];
-                        const v = (sum / step) / 255;
+                        const v = sum / step / 255;
                         const s = Math.max(0.12, Math.min(1.25, v * gain));
                         bars[i].style.transform = `scaleY(${s})`;
                     }
@@ -348,9 +384,9 @@ window.marked = window.marked || {
             root.querySelector(".bmb-row")?.classList.toggle("rec", !!on);
             mic?.classList.toggle("rec", !!on);
             waves?.classList.toggle("on", !!on);
-            sendB && (sendB.style.display = on ? "none" : "inline-block");
-            okB && (okB.style.display = on ? "inline-block" : "none");
-            cancelB && (cancelB.style.display = on ? "inline-block" : "none");
+            if (sendB) sendB.style.display = on ? "none" : "inline-block";
+            if (okB) okB.style.display = on ? "inline-block" : "none";
+            if (cancelB) cancelB.style.display = on ? "inline-block" : "none";
             if (on) {
                 input.classList.add("is-voice");
                 input.placeholder = "Dinliyorum…";
@@ -362,9 +398,7 @@ window.marked = window.marked || {
             }
         }
 
-        function srSupported() {
-            return !!SR;
-        }
+        const srSupported = () => !!SR;
 
         function srStop() {
             srKeepAlive = false;
@@ -376,7 +410,7 @@ window.marked = window.marked || {
             toggleRecordUI(false);
             stopWaves();
             try {
-                mediaStream?.getTracks()?.forEach(t => t.stop());
+                mediaStream?.getTracks()?.forEach((t) => t.stop());
             } catch {
             }
             mediaStream = null;
@@ -386,14 +420,15 @@ window.marked = window.marked || {
             if (starting || listening) return;
             if (!srSupported()) {
                 dlog("SpeechRecognition not supported");
-                mic && (mic.disabled = true);
+                if (mic) mic.disabled = true;
                 return;
             }
             starting = true;
             srKeepAlive = true;
             toggleRecordUI(true);
             try {
-                mediaStream = mediaStream || await navigator.mediaDevices.getUserMedia({audio: true});
+                mediaStream =
+                    mediaStream || (await navigator.mediaDevices.getUserMedia({audio: true}));
                 startWaves(mediaStream);
             } catch (err) {
                 dlog("Mic permission error", err);
@@ -407,12 +442,13 @@ window.marked = window.marked || {
                 listening = true;
             };
             rec.onresult = (e) => {
-                interimBuf = '';
+                interimBuf = "";
                 for (let i = e.resultIndex; i < e.results.length; i++) {
                     const chunk = e.results[i][0].transcript;
-                    if (e.results[i].isFinal) finalBuf += chunk + ' '; else interimBuf += chunk;
+                    if (e.results[i].isFinal) finalBuf += chunk + " ";
+                    else interimBuf += chunk;
                 }
-                input.value = (finalBuf + ' ' + interimBuf).replace(/\s+/g, ' ').trim();
+                input.value = (finalBuf + " " + interimBuf).replace(/\s+/g, " ").trim();
             };
             rec.onerror = () => {
             };
@@ -439,7 +475,7 @@ window.marked = window.marked || {
         }
 
         mic?.addEventListener("click", () => {
-            (!listening && !starting) ? srStart() : srStop();
+            !listening && !starting ? srStart() : srStop();
         });
         cancelB?.addEventListener("click", () => {
             srStop();
@@ -458,43 +494,54 @@ window.marked = window.marked || {
         const panelEl = root.closest(".bmb-panel");
         const ttsBtn = panelEl?.querySelector(".bmb-tts");
         const tts = {
-            enabled: false, voice: null, rate: 1.0, pitch: 1.1, volume: 1.0,
-            chosenName: localStorage.getItem("bmb_tts_voice") || null, audio: null, lastUrl: null
+            enabled: false,
+            voice: null,
+            rate: 1.0,
+            pitch: 1.1,
+            volume: 1.0,
+            chosenName: localStorage.getItem("bmb_tts_voice") || null,
+            audio: null,
+            lastUrl: null,
         };
 
-        function ttsSupported() {
-            return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
-        }
+        const ttsSupported = () =>
+            "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 
-        function listVoicesSafe() {
+        const listVoicesSafe = () => {
             try {
                 return speechSynthesis.getVoices() || [];
             } catch {
                 return [];
             }
-        }
+        };
 
-        const rankVoice = v => {
+        const rankVoice = (v) => {
             let s = 0;
-            const n = (v.name || "").toLowerCase(), l = (v.lang || "").toLowerCase();
+            const n = (v.name || "").toLowerCase(),
+                l = (v.lang || "").toLowerCase();
             if (l.startsWith("tr")) s += 5;
             if (l.includes("tr-tr")) s += 2;
             if (/seda|filiz|yelda|female|kadin/.test(n)) s += 6;
             if (/google|microsoft|online|natural/.test(n)) s += 2;
-            if (!l.startsWith("tr") && /samantha|serena|victoria|aria|jenny|zira|emma|amy|joanna/.test(n)) s += 1;
+            if (!l.startsWith("tr") && /samantha|serena|victoria|aria|jenny|zira|emma|amy|joanna/.test(n))
+                s += 1;
             return s;
         };
 
-        function pickVoice(pref) {
+        const pickVoice = (pref) => {
             const vs = listVoicesSafe();
             if (!vs.length) return null;
             if (pref) {
-                const f = vs.find(v => v.name === pref);
+                const f = vs.find((v) => v.name === pref);
                 if (f) return f;
             }
             const ranked = [...vs].sort((a, b) => rankVoice(b) - rankVoice(a));
-            return ranked.find(v => (v.lang || "").toLowerCase().startsWith("tr")) || ranked[0] || null;
-        }
+            return (
+                ranked.find((v) => (v.lang || "").toLowerCase().startsWith("tr")) ||
+                ranked[0] ||
+                null
+            );
+        };
 
         function initVoicesOnce() {
             if (!ttsSupported()) return;
@@ -510,21 +557,27 @@ window.marked = window.marked || {
         }
 
         function cleanForTTS(s) {
-            return (s || "").replace(/!\[[^\]]*\]\([^)]+\)/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-                .replace(/https?:\/\/\S+|www\.\S+|\S+@\S+/g, ' ').replace(/[=+\-/*<>|\\^~`_%$€£¥©®™°\[\]{}()@#:;]/g, ' ')
-                .replace(/[`*_#>{}<~^]+/g, ' ').replace(/[!?]{2,}/g, '!').replace(/\.{3,}/g, '.').replace(/\s+/g, ' ').trim();
+            return (s || "")
+                .replace(/!\[[^\]]*\]\([^)]+\)/g, "$1")
+                .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+                .replace(/https?:\/\/\S+|www\.\S+|\S+@\S+/g, " ")
+                .replace(/[=+\-/*<>|\\^~`_%$€£¥©®™°\[\]{}()@#:;]/g, " ")
+                .replace(/[`*_#>{}<~^]+/g, " ")
+                .replace(/[!?]{2,}/g, "!")
+                .replace(/\.{3,}/g, ".")
+                .replace(/\s+/g, " ")
+                .trim();
         }
 
         function ttsStop() {
             try {
-                speechSynthesis.cancel?.()
+                speechSynthesis.cancel?.();
             } catch {
             }
-            ;
             try {
                 if (tts.audio) {
                     tts.audio.pause();
-                    tts.audio.src = '';
+                    tts.audio.src = "";
                     tts.audio = null;
                 }
                 if (tts.lastUrl) {
@@ -540,7 +593,8 @@ window.marked = window.marked || {
             ttsBtn.classList.toggle("on", tts.enabled);
             ttsBtn.setAttribute("aria-pressed", String(tts.enabled));
             ttsBtn.textContent = tts.enabled ? "🔊" : "🔈";
-            if (tts.voice) ttsBtn.title = `Sesi ${tts.enabled ? 'kapat' : 'aç'} · ${tts.voice.name}`;
+            if (tts.voice)
+                ttsBtn.title = `Sesi ${tts.enabled ? "kapat" : "aç"} · ${tts.voice.name}`;
         }
 
         ttsBtn?.addEventListener("click", (ev) => {
@@ -556,10 +610,10 @@ window.marked = window.marked || {
             if (!ttsSupported()) return;
             const vs = listVoicesSafe();
             if (!vs.length) return;
-            const pool = vs.filter(v => (v.lang || "").toLowerCase().startsWith("tr"));
+            const pool = vs.filter((v) => (v.lang || "").toLowerCase().startsWith("tr"));
             const list = pool.length ? pool : vs;
             if (!tts.voice) tts.voice = pickVoice(tts.chosenName);
-            const idx = Math.max(0, list.findIndex(v => tts.voice && v.name === tts.voice.name));
+            const idx = Math.max(0, list.findIndex((v) => tts.voice && v.name === tts.voice.name));
             const next = list[(idx + 1) % list.length];
             if (next) {
                 tts.voice = next;
@@ -573,10 +627,11 @@ window.marked = window.marked || {
         const ttsEndpoint = location.origin + "/tts";
 
         async function speakAndGetDuration(text) {
-            if (!tts.enabled) return {
-                play: async () => {
-                }, durationMs: 0
-            };
+            if (!tts.enabled)
+                return {
+                    play: async () => {
+                    }, durationMs: 0
+                };
             const clean = cleanForTTS(text || "");
             if (!clean) return {
                 play: async () => {
@@ -586,7 +641,7 @@ window.marked = window.marked || {
                 const res = await fetch(ttsEndpoint, {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({text: clean, provider: "polly", voice: "Burcu"})
+                    body: JSON.stringify({text: clean, provider: "polly", voice: "Burcu"}),
                 });
                 if (!res.ok) return {
                     play: async () => {
@@ -595,28 +650,29 @@ window.marked = window.marked || {
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const probe = new Audio();
-                const durationMs = await new Promise(r => {
+                const durationMs = await new Promise((r) => {
                     probe.preload = "metadata";
                     probe.src = url;
                     probe.onloadedmetadata = () => r(Math.max(0, (probe.duration || 0) * 1000));
                     probe.onerror = () => r(0);
                 });
-                const play = () => new Promise(resolve => {
-                    try {
-                        if (tts.audio) tts.audio.pause();
-                    } catch {
-                    }
-                    ;const a = new Audio(url);
-                    a.onended = () => {
+                const play = () =>
+                    new Promise((resolve) => {
                         try {
-                            URL.revokeObjectURL(url);
+                            if (tts.audio) tts.audio.pause();
                         } catch {
                         }
-                        resolve();
-                    };
-                    a.play().catch(() => resolve());
-                    tts.audio = a;
-                });
+                        const a = new Audio(url);
+                        a.onended = () => {
+                            try {
+                                URL.revokeObjectURL(url);
+                            } catch {
+                            }
+                            resolve();
+                        };
+                        a.play().catch(() => resolve());
+                        tts.audio = a;
+                    });
                 return {play, durationMs: durationMs || Math.max(1200, clean.length * 55)};
             } catch {
                 return {
@@ -628,9 +684,10 @@ window.marked = window.marked || {
 
         // ===== typewriter (synced with optional audio) =====
         function typeWriter(el, text, msPerChar = 16) {
-            return new Promise(res => {
+            return new Promise((res) => {
                 const full = normalizeMd(text || "");
-                let i = 0, len = full.length;
+                let i = 0,
+                    len = full.length;
                 const id = setInterval(() => {
                     i++;
                     el.innerHTML = marked.parse(full.slice(0, i));
@@ -676,9 +733,10 @@ window.marked = window.marked || {
                 const res = await fetch("/api/chat", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({q: txt, client_id: getSid()})
+                    body: JSON.stringify({q: txt, client_id: getSid()}),
                 });
-                let data = null, textBlob = "";
+                let data = null,
+                    textBlob = "";
                 try {
                     data = await res.clone().json();
                 } catch {
@@ -697,12 +755,18 @@ window.marked = window.marked || {
                     dlog("HTTP error", res.status, textBlob.slice(0, 400));
                     return;
                 }
-                const reply = (data && typeof data.reply === "string") ? data.reply : "";
+                const reply = data && typeof data.reply === "string" ? data.reply : "";
                 const urls = Array.isArray(data?.urls) ? data.urls : [];
-                await renderAssistantReply(chat, reply || "Üzgünüm, bir aksaklık oldu. Birazdan tekrar dener misin?");
+                await renderAssistantReply(
+                    chat,
+                    reply || "Üzgünüm, bir aksaklık oldu. Birazdan tekrar dener misin?"
+                );
                 if (urls.length) addImageGallery(chat, urls);
             } catch (err) {
-                await renderAssistantReply(chat, "Üzgünüm, bir sorun oluştu. Lütfen tekrar dener misiniz?");
+                await renderAssistantReply(
+                    chat,
+                    "Üzgünüm, bir sorun oluştu. Lütfen tekrar dener misiniz?"
+                );
                 dlog("HTTP error", err);
             }
         }
@@ -721,16 +785,16 @@ window.marked = window.marked || {
             if (input) input.value = "";
         }
 
-        form?.addEventListener("submit", e => {
+        form?.addEventListener("submit", (e) => {
             e.preventDefault();
             e.stopPropagation();
         });
-        sendB?.addEventListener("click", e => {
+        sendB?.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
             send();
         });
-        input?.addEventListener("keydown", e => {
+        input?.addEventListener("keydown", (e) => {
             if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 send();
@@ -759,14 +823,14 @@ window.marked = window.marked || {
                     mo.disconnect();
                 } catch {
                 }
-            }
+            },
         };
     }
 
-    // expose (kept name so your launcher continues to work) — based on your current setup :contentReference[oaicite:1]{index=1}
+    // expose (kept name so your launcher keeps working)
     window.TTWChatbot = {openModal, mount};
     try {
-        window.dispatchEvent(new Event('bmb-ready'));
+        window.dispatchEvent(new Event("bmb-ready"));
     } catch {
     }
 })();
