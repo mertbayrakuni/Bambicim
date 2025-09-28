@@ -16,8 +16,7 @@ window.marked = window.marked || {
             if (!DBG.box) {
                 const el = document.createElement("div");
                 el.className = "bmb-debug";
-                el.innerHTML =
-                    '<div class="hd">Bambi Debug (F9)</div><div class="bd"></div>';
+                el.innerHTML = '<div class="hd">Bambi Debug (F9)</div><div class="bd"></div>';
                 document.body.appendChild(el);
                 DBG.box = el;
                 DBG.body = el.querySelector(".bd");
@@ -125,10 +124,7 @@ window.marked = window.marked || {
         if (!chatEl) return;
         const w = document.createElement("div");
         w.className = "bmb-b " + (who === "user" ? "u" : "a");
-        const raw = (text || "")
-            .replace(/\r\n/g, "\n")
-            .replace(/\r/g, "\n")
-            .replace(/\\n/g, "\n");
+        const raw = (text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\\n/g, "\n");
         const html =
             window.marked && window.marked.parse
                 ? window.marked.parse(raw)
@@ -166,8 +162,7 @@ window.marked = window.marked || {
             a.textContent = f.name || f.url;
             const meta = document.createElement("small");
             const kb = Math.round((f.size || 0) / 1024);
-            meta.textContent =
-                (f.content_type || "").split(";")[0] + (kb ? ` · ${kb} KB` : "");
+            meta.textContent = (f.content_type || "").split(";")[0] + (kb ? ` · ${kb} KB` : "");
             row.append(ico, a, meta);
             box.appendChild(row);
         });
@@ -199,7 +194,10 @@ window.marked = window.marked || {
         const norm = normalizeMd(text || "").replace(/\n{3,}/g, "\n\n").trim();
         if (!norm) return [];
         const blocks = norm.split(/\n\s*\n/);
-        dlog("MD ▶", blocks.map((b) => (b.slice(0, 80) + "…").replace(/\n/g, "⏎")));
+        dlog(
+            "MD ▶",
+            blocks.map((b) => (b.slice(0, 80) + "…").replace(/\n/g, "⏎"))
+        );
         return blocks.slice(0, 12);
     }
 
@@ -436,6 +434,7 @@ window.marked = window.marked || {
         };
 
         function renderPicks() {
+            if (!picks) return;
             picks.innerHTML = "";
             if (!fileInput?.files?.length) return;
             const frag = document.createDocumentFragment();
@@ -497,8 +496,7 @@ window.marked = window.marked || {
                     waves.appendChild(frag);
                     bars = Array.from(waves.querySelectorAll(".bar"));
                 }
-                if (!audioCtx)
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 const src = audioCtx.createMediaStreamSource(stream);
                 analyser = audioCtx.createAnalyser();
                 analyser.fftSize = 1024;
@@ -549,8 +547,7 @@ window.marked = window.marked || {
                 input.setAttribute("aria-label", "Dinliyorum…");
             } else {
                 input.classList.remove("is-voice");
-                input.placeholder =
-                    input.getAttribute("data-oldph") || "Mesajınızı yazın...";
+                input.placeholder = input.getAttribute("data-oldph") || "Mesajınızı yazın...";
                 input.setAttribute("aria-label", "Mesajınızı yazın");
             }
         }
@@ -584,8 +581,7 @@ window.marked = window.marked || {
             srKeepAlive = true;
             toggleRecordUI(true);
             try {
-                mediaStream =
-                    mediaStream || (await navigator.mediaDevices.getUserMedia({audio: true}));
+                mediaStream = mediaStream || (await navigator.mediaDevices.getUserMedia({audio: true}));
                 startWaves(mediaStream);
             } catch (err) {
                 dlog("Mic permission error", err);
@@ -661,8 +657,7 @@ window.marked = window.marked || {
             lastUrl: null,
         };
 
-        const ttsSupported = () =>
-            "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+        const ttsSupported = () => "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 
         const listVoicesSafe = () => {
             try {
@@ -680,8 +675,7 @@ window.marked = window.marked || {
             if (l.includes("tr-tr")) s += 2;
             if (/seda|filiz|yelda|female|kadin/.test(n)) s += 6;
             if (/google|microsoft|online|natural/.test(n)) s += 2;
-            if (!l.startsWith("tr") && /samantha|serena|victoria|aria|jenny|zira|emma|amy|joanna/.test(n))
-                s += 1;
+            if (!l.startsWith("tr") && /samantha|serena|victoria|aria|jenny|zira|emma|amy|joanna/.test(n)) s += 1;
             return s;
         };
 
@@ -693,11 +687,7 @@ window.marked = window.marked || {
                 if (f) return f;
             }
             const ranked = [...vs].sort((a, b) => rankVoice(b) - rankVoice(a));
-            return (
-                ranked.find((v) => (v.lang || "").toLowerCase().startsWith("tr")) ||
-                ranked[0] ||
-                null
-            );
+            return ranked.find((v) => (v.lang || "").toLowerCase().startsWith("tr")) || ranked[0] || null;
         };
 
         function initVoicesOnce() {
@@ -750,8 +740,7 @@ window.marked = window.marked || {
             ttsBtn.classList.toggle("on", tts.enabled);
             ttsBtn.setAttribute("aria-pressed", String(tts.enabled));
             ttsBtn.textContent = tts.enabled ? "🔊" : "🔈";
-            if (tts.voice)
-                ttsBtn.title = `Sesi ${tts.enabled ? "kapat" : "aç"} · ${tts.voice.name}`;
+            if (tts.voice) ttsBtn.title = `Sesi ${tts.enabled ? "kapat" : "aç"} · ${tts.voice.name}`;
         }
 
         ttsBtn?.addEventListener("click", (ev) => {
@@ -770,10 +759,7 @@ window.marked = window.marked || {
             const pool = vs.filter((v) => (v.lang || "").toLowerCase().startsWith("tr"));
             const list = pool.length ? pool : vs;
             if (!tts.voice) tts.voice = pickVoice(tts.chosenName);
-            const idx = Math.max(
-                0,
-                list.findIndex((v) => tts.voice && v.name === tts.voice.name)
-            );
+            const idx = Math.max(0, list.findIndex((v) => tts.voice && v.name === tts.voice.name));
             const next = list[(idx + 1) % list.length];
             if (next) {
                 tts.voice = next;
@@ -818,8 +804,7 @@ window.marked = window.marked || {
                 const durationMs = await new Promise((r) => {
                     probe.preload = "metadata";
                     probe.src = url;
-                    probe.onloadedmetadata = () =>
-                        r(Math.max(0, (probe.duration || 0) * 1000));
+                    probe.onloadedmetadata = () => r(Math.max(0, (probe.duration || 0) * 1000));
                     probe.onerror = () => r(0);
                 });
                 const play = () =>
@@ -946,15 +931,10 @@ window.marked = window.marked || {
 
                 // non-image files (list)
                 const filesMeta = Array.isArray(data?.files) ? data.files : [];
-                const nonImages = filesMeta.filter(
-                    (f) => !(f.content_type || "").startsWith("image/")
-                );
+                const nonImages = filesMeta.filter((f) => !(f.content_type || "").startsWith("image/"));
                 if (nonImages.length) addFileList(chat, nonImages);
             } catch (err) {
-                await renderAssistantReply(
-                    chat,
-                    "Üzgünüm, bir sorun oluştu. Lütfen tekrar dener misiniz?"
-                );
+                await renderAssistantReply(chat, "Üzgünüm, bir sorun oluştu. Lütfen tekrar dener misiniz?");
                 dlog("HTTP error", err);
             }
         }
