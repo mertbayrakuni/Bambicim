@@ -1,4 +1,3 @@
-# copilot/retrieval.py
 from __future__ import annotations
 
 import os
@@ -11,7 +10,7 @@ from typing import List, Dict, Tuple, Optional
 import numpy as np
 from django.conf import settings
 
-from copilot.dense import search_dense  # our unified dense API
+from copilot.dense import search_dense  # unified dense API
 from .models import Paragraph
 
 try:
@@ -43,7 +42,6 @@ _tok_en = re.compile(r"[^\w]+", re.I)
 
 def _tok(s: str) -> List[str]:
     s = s.lower()
-    # a tiny heuristic; you can wire a setting for LANG if needed
     is_tr = bool(re.search(r"[çğıöşüİı]", s))
     s = (_tok_tr if is_tr else _tok_en).sub(" ", s)
     return [t for t in _ws.split(s) if t]
@@ -105,7 +103,6 @@ def _build_index(force: bool = False) -> None:
         for p in qs.iterator(chunk_size=1000):
             rows.append(p)
             seen.add(p.doc_id)
-            # take first few paras of each doc; stop early when we reached MAX_DOCS
             if len(seen) >= MAX_DOCS and p.order >= 2:
                 break
     else:
@@ -150,7 +147,6 @@ def hybrid_search(q: str, k: int = 8, rrf_k: int = 60) -> List[Dict]:
     if not q or not q.strip():
         return []
 
-    # BM25 from DB paragraphs
     bm_scores = _search_bm25(q)
     bm_pairs: List[Tuple[Dict, float]] = []
     if bm_scores is not None:
@@ -162,18 +158,17 @@ def hybrid_search(q: str, k: int = 8, rrf_k: int = 60) -> List[Dict]:
                 float(bm_scores[int(idx)]),
             ))
 
-    # Dense from prebuilt index
     try:
         dense_pairs = search_dense(q, k=max(k, 8))  # [(payload, score)]
     except Exception:
         dense_pairs = []
 
-    # RRF fusion
-    def key_of(payload: Dict) -> Tuple[str, str]:
+    # Reciprocal Rank Fusion
+    def key_of(payload: Dict) -> tuple[str, str]:
         return ((payload.get("text") or "")[:80], payload.get("url") or "")
 
     scores = defaultdict(float)
-    payloads: Dict[Tuple[str, str], Dict] = {}
+    payloads: Dict[tuple[str, str], Dict] = {}
 
     for rank, (pl, _) in enumerate(dense_pairs):
         key = key_of(pl)
@@ -183,7 +178,6 @@ def hybrid_search(q: str, k: int = 8, rrf_k: int = 60) -> List[Dict]:
     for rank, (pl, _) in enumerate(bm_pairs):
         key = key_of(pl)
         scores[key] += 1.0 / (rrf_k + rank + 1)
-        # prefer richer payload if present
         payloads[key] = payloads.get(key) or pl
 
     qtok = _tok(q)
@@ -198,4 +192,6 @@ def hybrid_search(q: str, k: int = 8, rrf_k: int = 60) -> List[Dict]:
             "snippet": _highlight(text, qtok),
             "score": round(float(sc), 4),
         })
+        if len(items) >= k:
+            break
     return items

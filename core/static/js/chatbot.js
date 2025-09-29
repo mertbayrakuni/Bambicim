@@ -1,27 +1,44 @@
-/* Bambi Copilot – modal chat (SSE + uploads + voice + gallery) */
-/* Safe markdown fallback */
-window.marked = window.marked || {
-    parse: (s) =>
-        String(s || "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/\n/g, "<br>"),
-};
-
+/* Bambi Copilot — clean modal chat (SSE + uploads + voice + sources)
+   Endpoints (adjust API_BASE if needed):
+   - POST ${API_BASE}/upload_files   -> multipart/form-data (files[], optional conversation_id)
+   - POST ${API_BASE}/chat_sse       -> JSON {message, conversation_id?, client_id?}, Accept: text/event-stream
+   - POST ${API_BASE}/search_api     -> JSON {q, k?} (optional helper)
+*/
 (() => {
-    // ===== debug overlay (F9) =====
+    // ====== Config ======
+    const API_BASE = "/copilot"; // change to "/api/copilot" if your urls use that prefix
+    const ENDPOINTS = {
+        upload: `${API_BASE}/upload_files`,
+        chat: `${API_BASE}/chat_sse`,
+        search: `${API_BASE}/search_api`,
+    };
+
+    // ====== Safe markdown fallback ======
+    window.marked = window.marked || {
+        parse: (s) =>
+            String(s || "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/\n/g, "<br>"),
+    };
+
+    // ====== Debug overlay (F9) ======
     const DBG = {box: null, body: null, lines: []};
     const dlog = (...a) => {
         try {
             if (!DBG.box) {
                 const el = document.createElement("div");
                 el.className = "bmb-debug";
-                el.innerHTML = '<div class="hd">Bambi Debug (F9)</div><div class="bd"></div>';
+                el.innerHTML =
+                    '<div class="hd">Bambi Debug (F9)</div><div class="bd"></div>';
                 document.body.appendChild(el);
                 DBG.box = el;
                 DBG.body = el.querySelector(".bd");
-                window.addEventListener("keydown", (e) => e.key === "F9" && el.classList.toggle("open"));
+                window.addEventListener(
+                    "keydown",
+                    (e) => e.key === "F9" && el.classList.toggle("open")
+                );
             }
             const line =
                 `[${new Date().toLocaleTimeString()}] ` +
@@ -42,7 +59,7 @@ window.marked = window.marked || {
         }
     };
 
-    // ===== utils =====
+    // ====== Utils ======
     const getSid = () => {
         try {
             let sid = localStorage.getItem("bmb_sid");
@@ -55,42 +72,41 @@ window.marked = window.marked || {
             return Math.random().toString(36).slice(2);
         }
     };
-
-    const normalizeMd = (s) =>
-        (s || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\\n/g, "\n");
-
     const getCSRF = () => {
         try {
-            return document.cookie
-                .split(";")
-                .map((c) => c.trim())
-                .find((c) => c.startsWith("csrftoken="))
-                ?.split("=")[1] || "";
+            return (
+                document.cookie
+                    .split(";")
+                    .map((c) => c.trim())
+                    .find((c) => c.startsWith("csrftoken="))
+                    ?.split("=")[1] || ""
+            );
         } catch {
             return "";
         }
     };
+    const normalizeMd = (s) =>
+        (s || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\\n/g, "\n");
 
-    // Turn plain URLs/emails into <a> (DOM safe)
+    // Turn plain URLs/emails into <a> safely
     function linkifyHTML(html) {
         const root = document.createElement("div");
         root.innerHTML = html;
-
-        const LINK_RE_G =
+        const RE =
             /((?:https?:\/\/|www\.)[^\s<>()]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
         const isEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
         const isUrl = (s) => /^(?:https?:\/\/|www\.)/i.test(s);
 
         (function walk(node) {
             if (node.nodeType === 3) {
-                const parts = node.nodeValue.split(LINK_RE_G);
+                const parts = node.nodeValue.split(RE);
                 if (parts.length === 1) return;
                 const frag = document.createDocumentFragment();
                 for (let i = 0; i < parts.length; i++) {
                     let chunk = parts[i];
                     if (!chunk) continue;
-                    if (LINK_RE_G.test(chunk)) {
-                        LINK_RE_G.lastIndex = 0;
+                    if (RE.test(chunk)) {
+                        RE.lastIndex = 0;
                         const m = chunk.match(/[),.;!?]+$/);
                         const trail = m ? m[0] : "";
                         if (trail) chunk = chunk.slice(0, -trail.length);
@@ -135,7 +151,7 @@ window.marked = window.marked || {
         if (!chatEl) return;
         const w = document.createElement("div");
         w.className = "bmb-b " + (who === "user" ? "u" : "a");
-        const raw = (text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\\n/g, "\n");
+        const raw = normalizeMd(text || "");
         const html =
             window.marked && window.marked.parse
                 ? window.marked.parse(raw)
@@ -153,31 +169,27 @@ window.marked = window.marked || {
         chatEl.scrollTop = chatEl.scrollHeight;
     }
 
-    // assistant file list (non-images)
-    function addFileList(chatEl, files) {
-        if (!chatEl || !files?.length) return;
+    function addSources(chatEl, items) {
+        if (!chatEl || !items?.length) return;
         const wrap = document.createElement("div");
-        wrap.className = "bmb-b a";
-        const box = document.createElement("div");
-        box.className = "bmb-files";
-        files.forEach((f) => {
-            const row = document.createElement("div");
-            row.className = "bmb-file-row";
-            const ico = document.createElement("div");
-            ico.className = "ico";
-            ico.textContent = "📄";
+        wrap.className = "bmb-b a bmb-sources";
+        const list = document.createElement("ul");
+        list.className = "bmb-src-list";
+        items.slice(0, 6).forEach((h) => {
+            const li = document.createElement("li");
             const a = document.createElement("a");
-            a.href = f.url;
+            a.href = h.url || "#";
+            a.textContent = (h.title || h.url || "Kaynak").trim();
             a.target = "_blank";
-            a.rel = "noopener";
-            a.textContent = f.name || f.url;
-            const meta = document.createElement("small");
-            const kb = Math.round((f.size || 0) / 1024);
-            meta.textContent = (f.content_type || "").split(";")[0] + (kb ? ` · ${kb} KB` : "");
-            row.append(ico, a, meta);
-            box.appendChild(row);
+            a.rel = "noopener noreferrer";
+            const sn = document.createElement("div");
+            sn.className = "snip";
+            sn.textContent = (h.snippet || h.text || "").slice(0, 160);
+            li.appendChild(a);
+            if (sn.textContent) li.appendChild(sn);
+            list.appendChild(li);
         });
-        wrap.appendChild(box);
+        wrap.appendChild(list);
         const ts = document.createElement("div");
         ts.className = "bmb-ts";
         ts.textContent = new Date().toLocaleTimeString();
@@ -186,6 +198,32 @@ window.marked = window.marked || {
         chatEl.scrollTop = chatEl.scrollHeight;
     }
 
+    // ===== Image gallery (for user preview only) =====
+    function addImagePreview(chatEl, files) {
+        const imgs = [...(files || [])].filter((f) => f.type.startsWith("image/"));
+        if (!imgs.length) return;
+        const urls = imgs.map((f) => URL.createObjectURL(f));
+        const w = document.createElement("div");
+        w.className = "bmb-b u";
+        const grid = document.createElement("div");
+        grid.className = "bmb-previews";
+        urls.forEach((u) => {
+            const im = document.createElement("img");
+            im.src = u;
+            im.alt = "preview";
+            grid.appendChild(im);
+        });
+        w.appendChild(grid);
+        const ts = document.createElement("div");
+        ts.className = "bmb-ts";
+        ts.textContent = new Date().toLocaleTimeString();
+        w.appendChild(ts);
+        chatEl.appendChild(w);
+        chatEl.scrollTop = chatEl.scrollHeight;
+        setTimeout(() => urls.forEach((u) => URL.revokeObjectURL(u)), 30000);
+    }
+
+    // ===== Typing indicator =====
     function showTyping(chatEl) {
         const b = document.createElement("div");
         b.className = "bmb-b a bmb-typing";
@@ -201,101 +239,7 @@ window.marked = window.marked || {
         };
     }
 
-    function splitSteps(text) {
-        const norm = normalizeMd(text || "").replace(/\n{3,}/g, "\n\n").trim();
-        if (!norm) return [];
-        const blocks = norm.split(/\n\s*\n/);
-        dlog("MD ▶", blocks.map((b) => (b.slice(0, 80) + "…").replace(/\n/g, "⏎")));
-        return blocks.slice(0, 12);
-    }
-
-    // ===== gallery =====
-    function resolveUrl(u) {
-        if (!u) return null;
-        if (/^https?:\/\//i.test(u)) return u;
-        if (u.startsWith("//")) return location.protocol + u;
-        if (u.startsWith("/")) return location.origin + u;
-        return location.origin + "/" + u.replace(/^\.?\//, "");
-    }
-
-    function hardClampCaptions(scope) {
-        const doClamp = () => {
-            const caps = (scope || document).querySelectorAll(".bmb-gallery .cap");
-            caps.forEach((el) => {
-                const cs = getComputedStyle(el);
-                let lh = parseFloat(cs.lineHeight);
-                if (!isFinite(lh)) {
-                    const fs = parseFloat(cs.fontSize) || 12;
-                    lh = fs * 1.3;
-                }
-                const maxH = Math.round(lh * 2);
-                if (el.scrollHeight > maxH + 1) {
-                    const full = (el.getAttribute("data-full") || el.textContent || "")
-                        .trim()
-                        .replace(/\s+/g, " ");
-                    let lo = 0,
-                        hi = full.length,
-                        best = "";
-                    while (lo <= hi) {
-                        const mid = (lo + hi) >> 1;
-                        el.textContent = full.slice(0, mid).trim() + "…";
-                        if (el.scrollHeight <= maxH + 1) {
-                            best = el.textContent;
-                            lo = mid + 1;
-                        } else hi = mid - 1;
-                    }
-                    el.textContent = best || full.slice(0, 2) + "…";
-                    if (!el.title) el.title = full;
-                }
-            });
-        };
-        requestAnimationFrame(() => requestAnimationFrame(doClamp));
-    }
-
-    function addImageGallery(chatEl, items) {
-        if (!chatEl || !items?.length) return;
-        const wrap = document.createElement("div");
-        wrap.className = "bmb-b a has-gallery";
-        const grid = document.createElement("div");
-        grid.className = "bmb-gallery";
-        items.slice(0, 12).forEach((it) => {
-            const obj = typeof it === "string" ? {image: it, adres: it} : it || {};
-            const imgSrc = resolveUrl(obj.image || obj.adres);
-            const href = resolveUrl(obj.adres || obj.image);
-            if (!imgSrc) return;
-            const tile = document.createElement("a");
-            tile.className = "tile";
-            tile.href = href || imgSrc;
-            tile.target = "_blank";
-            tile.rel = "noopener noreferrer";
-            const imgWrap = document.createElement("div");
-            imgWrap.className = "img-wrap";
-            const img = document.createElement("img");
-            img.src = imgSrc;
-            img.alt = obj.title || "görsel";
-            img.loading = "lazy";
-            imgWrap.appendChild(img);
-            tile.appendChild(imgWrap);
-            const cap = document.createElement("div");
-            cap.className = "cap";
-            const title = (obj.title || "").trim();
-            cap.textContent = title;
-            cap.title = title;
-            cap.setAttribute("data-full", title);
-            tile.appendChild(cap);
-            grid.appendChild(tile);
-        });
-        wrap.appendChild(grid);
-        const ts = document.createElement("div");
-        ts.className = "bmb-ts";
-        ts.textContent = new Date().toLocaleTimeString();
-        wrap.appendChild(ts);
-        chatEl.appendChild(wrap);
-        chatEl.scrollTop = chatEl.scrollHeight;
-        hardClampCaptions(wrap);
-    }
-
-    // ===== modal shell =====
+    // ===== Modal shell =====
     const pageRect = (el) => {
         const r = el.getBoundingClientRect();
         return {left: r.left + scrollX, top: r.top + scrollY, width: r.width, height: r.height};
@@ -314,22 +258,21 @@ window.marked = window.marked || {
       </div>
       <div class="bmb-body">
         <div class="bmb-chat" data-bmb-chat data-autoinit="1">
-          <header class="bmb-h"><h2>AI Chatbot</h2><div class="s">Size yardımcı olmak için buradayım</div></header>
+          <header class="bmb-h"><h2>AI Chatbot</h2><div class="s">Bambicim uzmanınız 💖</div></header>
           <div class="bmb-log" role="log" aria-live="polite"></div>
           <form class="bmb-row" autocomplete="off">
             <button class="bmb-clip" type="button" title="Dosya ekle" aria-label="Dosya ekle">📎</button>
-            <input class="bmb-inp" type="text" placeholder="Mesajınızı yazın..." aria-label="Mesajınızı yazın">
+            <input class="bmb-inp" type="text" placeholder="Mesaj yaz..." aria-label="Mesaj yaz">
             <div class="bmb-picks" aria-live="polite"></div>
             <input class="bmb-file" type="file" accept="image/*,.pdf,.txt,.md,.doc,.docx,.ppt,.pptx,.csv" multiple hidden>
             <div class="bmb-waves" aria-hidden="true"></div>
             <button class="bmb-mic" type="button" id="bmbMic" aria-pressed="false" title="Sesle yaz"></button>
-            <button class="bmb-btn bmb-send" type="button" id="bmbSend">Gönder</button>
-            <button class="bmb-btn bmb-ok" type="button" id="bmbOk" style="display:none">OK</button>
-            <button class="bmb-btn bmb-cancel" type="button" id="bmbCancel" style="display:none">İptal</button>
+            <button class="bmb-btn bmb-send" type="submit" id="bmbSend">Gönder</button>
           </form>
-          <div class="bmb-disclaimer">Bambi, Bambicim için hazırlanmış deneysel bir sohbet asistanıdır</div>
+          <div class="bmb-disclaimer">Bambi, Bambicim için hazırlanmış deneysel bir sohbet asistanıdır.</div>
         </div>
       </div>`;
+
         document.body.append(overlay, panel);
         document.body.classList.add("bmb-modal-open");
 
@@ -401,27 +344,23 @@ window.marked = window.marked || {
         }
     }
 
-    // ===== Mount (HTTP+SSE) =====
+    // ===== Mount (SSE + uploads + voice) =====
     function mount(root, opts) {
-        if (!root)
-            return {
-                destroy() {
-                },
-            };
+        if (!root) return {
+            destroy() {
+            }
+        };
 
         const chat = root.querySelector(".bmb-log");
         const input = root.querySelector(".bmb-inp");
-        const sendB = root.querySelector(".bmb-send");
         const form = root.querySelector("form");
         const mic = root.querySelector("#bmbMic");
         const waves = root.querySelector(".bmb-waves");
-        const okB = root.querySelector("#bmbOk");
-        const cancelB = root.querySelector("#bmbCancel");
         const clip = root.querySelector(".bmb-clip");
         const fileInput = root.querySelector(".bmb-file");
         const picks = root.querySelector(".bmb-picks");
 
-        // file chips
+        // File chips (selected before sending)
         function renderPicks() {
             picks.innerHTML = "";
             const files = fileInput?.files ? [...fileInput.files] : [];
@@ -460,28 +399,21 @@ window.marked = window.marked || {
         clip?.addEventListener("click", () => fileInput?.click());
         fileInput?.addEventListener("change", renderPicks);
 
-        // === Voice (SR + waves)
+        // ==== Voice (Web Speech API) ====
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let rec = null,
-            listening = false,
-            starting = false;
-        let finalBuf = "",
-            interimBuf = "";
+        let rec = null, listening = false, starting = false;
+        let finalBuf = "", interimBuf = "";
         let srKeepAlive = false;
         let mediaStream = null;
-
-        let audioCtx = null,
-            analyser = null,
-            rafId = 0;
+        let audioCtx = null, analyser = null, rafId = 0;
 
         function startWaves(stream) {
             if (!waves) return;
             try {
                 let bars = Array.from(waves.querySelectorAll(".bar"));
                 if (bars.length === 0) {
-                    const target = 28,
-                        frag = document.createDocumentFragment();
-                    for (let i = 0; i < target; i++) {
+                    const frag = document.createDocumentFragment();
+                    for (let i = 0; i < 28; i++) {
                         const b = document.createElement("span");
                         b.className = "bar";
                         frag.appendChild(b);
@@ -531,18 +463,9 @@ window.marked = window.marked || {
             root.querySelector(".bmb-row")?.classList.toggle("rec", !!on);
             mic?.classList.toggle("rec", !!on);
             waves?.classList.toggle("on", !!on);
-            if (sendB) sendB.style.display = on ? "none" : "inline-block";
-            if (okB) okB.style.display = on ? "inline-block" : "none";
-            if (cancelB) cancelB.style.display = on ? "inline-block" : "none";
-            if (on) {
-                input.classList.add("is-voice");
-                input.placeholder = "Dinliyorum…";
-                input.setAttribute("aria-label", "Dinliyorum…");
-            } else {
-                input.classList.remove("is-voice");
-                input.placeholder = input.getAttribute("data-oldph") || "Mesajınızı yazın...";
-                input.setAttribute("aria-label", "Mesajınızı yazın");
-            }
+            input.classList.toggle("is-voice", !!on);
+            input.placeholder = on ? "Dinliyorum…" : (input.getAttribute("data-oldph") || "Mesaj yaz...");
+            input.setAttribute("aria-label", input.placeholder);
         }
 
         const srSupported = () => !!SR;
@@ -566,8 +489,7 @@ window.marked = window.marked || {
         async function srStart() {
             if (starting || listening) return;
             if (!srSupported()) {
-                dlog("SpeechRecognition not supported");
-                if (mic) mic.disabled = true;
+                mic && (mic.disabled = true);
                 return;
             }
             starting = true;
@@ -596,8 +518,6 @@ window.marked = window.marked || {
                 }
                 input.value = (finalBuf + " " + interimBuf).replace(/\s+/g, " ").trim();
             };
-            rec.onerror = () => {
-            };
             rec.onend = () => {
                 if (srKeepAlive) {
                     try {
@@ -623,31 +543,16 @@ window.marked = window.marked || {
         mic?.addEventListener("click", () => {
             !listening && !starting ? srStart() : srStop();
         });
-        cancelB?.addEventListener("click", () => {
-            srStop();
-            input.value = (input.value || "").trim();
-            input.focus();
-        });
-        okB?.addEventListener("click", () => {
-            srStop();
-            input.focus();
-        });
         input?.addEventListener("keydown", () => {
             if (listening) srStop();
         });
 
-        // ===== TTS (optional, toggled from header)
+        // ===== TTS toggle (optional) =====
         const panelEl = root.closest(".bmb-panel");
         const ttsBtn = panelEl?.querySelector(".bmb-tts");
         const tts = {
-            enabled: false,
-            voice: null,
-            rate: 1.0,
-            pitch: 1.1,
-            volume: 1.0,
-            chosenName: localStorage.getItem("bmb_tts_voice") || null,
-            audio: null,
-            lastUrl: null,
+            enabled: false, voice: null, chosen: localStorage.getItem("bmb_tts_voice") || null,
+            rate: 1.0, pitch: 1.1, volume: 1.0,
         };
         const ttsSupported = () => "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
         const listVoicesSafe = () => {
@@ -658,15 +563,11 @@ window.marked = window.marked || {
             }
         };
         const rankVoice = (v) => {
-            let s = 0;
-            const n = (v.name || "").toLowerCase(),
-                l = (v.lang || "").toLowerCase();
+            let s = 0, n = (v.name || "").toLowerCase(), l = (v.lang || "").toLowerCase();
             if (l.startsWith("tr")) s += 5;
             if (l.includes("tr-tr")) s += 2;
             if (/seda|filiz|yelda|female|kadin/.test(n)) s += 6;
             if (/google|microsoft|online|natural/.test(n)) s += 2;
-            if (!l.startsWith("tr") && /samantha|serena|victoria|aria|jenny|zira|emma|amy|joanna/.test(n))
-                s += 1;
             return s;
         };
         const pickVoice = (pref) => {
@@ -680,25 +581,25 @@ window.marked = window.marked || {
             return ranked.find((v) => (v.lang || "").toLowerCase().startsWith("tr")) || ranked[0] || null;
         };
 
-        function initVoicesOnce() {
-            if (!ttsSupported()) return;
-            tts.voice = pickVoice(tts.chosenName);
-            try {
-                speechSynthesis.onvoiceschanged = () => {
-                    const prev = tts.voice && tts.voice.name;
-                    tts.voice = pickVoice(tts.chosenName || prev);
-                    updateTtsBtn();
-                };
-            } catch {
-            }
-        }
-
         function updateTtsBtn() {
             if (!ttsBtn) return;
             ttsBtn.classList.toggle("on", tts.enabled);
             ttsBtn.setAttribute("aria-pressed", String(tts.enabled));
             ttsBtn.textContent = tts.enabled ? "🔊" : "🔈";
             if (tts.voice) ttsBtn.title = `Sesi ${tts.enabled ? "kapat" : "aç"} · ${tts.voice.name}`;
+        }
+
+        function initVoicesOnce() {
+            if (!ttsSupported()) return;
+            tts.voice = pickVoice(tts.chosen);
+            try {
+                speechSynthesis.onvoiceschanged = () => {
+                    const prev = tts.voice && tts.voice.name;
+                    tts.voice = pickVoice(tts.chosen || prev);
+                    updateTtsBtn();
+                };
+            } catch {
+            }
         }
 
         ttsBtn?.addEventListener("click", (ev) => {
@@ -708,18 +609,6 @@ window.marked = window.marked || {
             if (!tts.enabled) {
                 try {
                     speechSynthesis.cancel?.();
-                } catch {
-                }
-                try {
-                    if (tts.audio) {
-                        tts.audio.pause();
-                        tts.audio.src = "";
-                        tts.audio = null;
-                    }
-                    if (tts.lastUrl) {
-                        URL.revokeObjectURL(tts.lastUrl);
-                        tts.lastUrl = null;
-                    }
                 } catch {
                 }
             }
@@ -733,12 +622,12 @@ window.marked = window.marked || {
             if (!vs.length) return;
             const pool = vs.filter((v) => (v.lang || "").toLowerCase().startsWith("tr"));
             const list = pool.length ? pool : vs;
-            if (!tts.voice) tts.voice = pickVoice(tts.chosenName);
+            if (!tts.voice) tts.voice = pickVoice(tts.chosen);
             const idx = Math.max(0, list.findIndex((v) => tts.voice && v.name === tts.voice.name));
             const next = list[(idx + 1) % list.length];
             if (next) {
                 tts.voice = next;
-                tts.chosenName = next.name;
+                tts.chosen = next.name;
                 localStorage.setItem("bmb_tts_voice", next.name);
                 updateTtsBtn();
             }
@@ -746,75 +635,11 @@ window.marked = window.marked || {
         updateTtsBtn();
         if (ttsSupported()) initVoicesOnce();
 
-        // ===== Fallback: plain HTTP responder (still used by initialText)
-        async function httpSend(txt, files) {
-            try {
-                let res;
-                if (files && files.length) {
-                    const fd = new FormData();
-                    fd.append("q", txt || "");
-                    fd.append("client_id", getSid());
-                    [...files].forEach((f) => fd.append("files", f, f.name));
-                    res = await fetch("/api/chat", {
-                        method: "POST",
-                        body: fd,
-                        credentials: "same-origin",
-                        headers: {"X-CSRFToken": getCSRF()},
-                    });
-                } else {
-                    res = await fetch("/api/chat", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-CSRFToken": getCSRF(),
-                        },
-                        credentials: "same-origin",
-                        body: JSON.stringify({q: txt, client_id: getSid()}),
-                    });
-                }
-
-                let data = null,
-                    textBlob = "";
-                try {
-                    data = await res.clone().json();
-                } catch {
-                    textBlob = await res.text().catch(() => "");
-                }
-                if (!res.ok) {
-                    let human = `Sunucu ${res.status} döndürdü.`;
-                    if (data && (data.error || data.detail)) {
-                        const bits = [data.error, data.detail].filter(Boolean).join(" · ");
-                        human += " " + bits;
-                    }
-                    if (res.status === 403 && /csrf/i.test(textBlob)) {
-                        human = "Güvenlik (CSRF) engeli. Çözüm: /api/chat CSRF muaf olmalı veya token gönderilmeli.";
-                    }
-                    await renderAssistantReply(chat, "Hata: " + human);
-                    dlog("HTTP error", res.status, textBlob.slice(0, 400));
-                    return;
-                }
-                const reply = data && typeof data.reply === "string" ? data.reply : "";
-                await renderAssistantReply(chat, reply || "Üzgünüm, bir aksaklık oldu. Birazdan tekrar dener misin?");
-
-                // images
-                const urls = Array.isArray(data?.urls) ? data.urls : [];
-                if (urls.length) addImageGallery(chat, urls);
-
-                // non-images
-                const filesMeta = Array.isArray(data?.files) ? data.files : [];
-                const nonImages = filesMeta.filter((f) => !(f.content_type || "").startsWith("image/"));
-                if (nonImages.length) addFileList(chat, nonImages);
-            } catch (err) {
-                await renderAssistantReply(chat, "Üzgünüm, bir sorun oluştu. Lütfen tekrar dener misiniz?");
-                dlog("HTTP error", err);
-            }
-        }
-
-        // ===== SSE (Copilot)
+        // ===== SSE send (with optional upload) =====
         let activeStream = null;
 
-        async function sseSend(txt, fileInput, chatEl, onStart, onDone) {
-            // cancel previous stream
+        async function sseSend(txt, files) {
+            // cancel previous
             try {
                 activeStream?.abort();
             } catch {
@@ -822,32 +647,38 @@ window.marked = window.marked || {
             const ctrl = new AbortController();
             activeStream = ctrl;
 
-            // upload files (optional)
             let conversation_id = localStorage.getItem("bmb_convo") || "";
-            if (fileInput && fileInput.files && fileInput.files.length) {
+
+            // upload if any
+            if (files && files.length) {
                 const fd = new FormData();
-                [...fileInput.files].forEach((f) => fd.append("files", f, f.name));
+                [...files].forEach((f) => fd.append("files", f, f.name));
                 if (conversation_id) fd.append("conversation_id", conversation_id);
-                const up = await fetch("/api/copilot/upload", {
+                const up = await fetch(ENDPOINTS.upload, {
                     method: "POST",
                     body: fd,
                     credentials: "same-origin",
                     headers: {"X-CSRFToken": getCSRF()},
                     signal: ctrl.signal,
                 }).catch(() => null);
-
                 if (up && up.ok) {
-                    const files = await up.json().catch(() => []);
-                    if (files?.[0]?.conversation_id) {
-                        conversation_id = files[0].conversation_id;
+                    const payload = await up.json().catch(() => []);
+                    if (payload?.[0]?.conversation_id) {
+                        conversation_id = payload[0].conversation_id;
                         localStorage.setItem("bmb_convo", conversation_id);
                     }
                 }
             }
 
+            // create assistant bubble for streaming
+            const w = document.createElement("div");
+            w.className = "bmb-b a";
+            chat.appendChild(w);
+            chat.scrollTop = chat.scrollHeight;
+
             // start stream
             const body = JSON.stringify({conversation_id, message: txt, client_id: getSid()});
-            const resp = await fetch("/api/copilot/chat", {
+            const resp = await fetch(ENDPOINTS.chat, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -860,28 +691,32 @@ window.marked = window.marked || {
             }).catch(() => null);
 
             if (!resp || !resp.ok || !resp.body) {
-                await renderAssistantReply(chatEl, "Üzgünüm, akışı başlatamadım.");
-                onDone?.();
+                w.innerHTML = linkifyHTML(window.marked.parse("_Akış başlatılamadı._"));
                 return;
             }
 
-            onStart?.();
-
+            let buffer = "", bucket = "";
             const reader = resp.body.getReader();
             const decoder = new TextDecoder();
-            let buffer = "",
-                bucket = "";
 
-            // target assistant bubble
-            const w = document.createElement("div");
-            w.className = "bmb-b a";
-            chatEl.appendChild(w);
-
-            function flushBucket() {
+            const flush = () => {
                 if (!bucket) return;
                 w.innerHTML = linkifyHTML(window.marked.parse(bucket));
-                chatEl.scrollTop = chatEl.scrollHeight;
-            }
+                chat.scrollTop = chat.scrollHeight;
+                // optional TTS
+                if (tts.enabled && ttsSupported() && bucket) {
+                    try {
+                        speechSynthesis.cancel?.();
+                        const u = new SpeechSynthesisUtterance(bucket.replace(/\[\d+\]/g, ""));
+                        if (tts.voice) u.voice = tts.voice;
+                        u.rate = tts.rate;
+                        u.pitch = tts.pitch;
+                        u.volume = tts.volume;
+                        speechSynthesis.speak(u);
+                    } catch {
+                    }
+                }
+            };
 
             try {
                 while (true) {
@@ -889,21 +724,28 @@ window.marked = window.marked || {
                     if (done) break;
                     buffer += decoder.decode(value, {stream: true});
 
-                    const parts = buffer.split("\n\n");
-                    buffer = parts.pop();
-                    for (const raw of parts) {
-                        const lines = raw.split("\n");
-                        let event = "message",
-                            data = "";
-                        for (const ln of lines) {
-                            if (ln.startsWith("event:")) event = ln.slice(6).trim();
-                            if (ln.startsWith("data:")) data += ln.slice(5).trim();
+                    const events = buffer.split("\n\n");
+                    buffer = events.pop(); // keep last partial
+                    for (const raw of events) {
+                        // parse SSE block
+                        let event = "message", data = "";
+                        for (const line of raw.split("\n")) {
+                            if (line.startsWith("event:")) event = line.slice(6).trim();
+                            else if (line.startsWith("data:")) data += line.slice(5).trim();
                         }
                         if (event === "delta") {
                             try {
                                 const j = JSON.parse(data);
                                 bucket += j.text || "";
-                                flushBucket();
+                                flush();
+                            } catch {
+                            }
+                        } else if (event === "tool") {
+                            try {
+                                const j = JSON.parse(data);
+                                if (j.name === "retrieve" && j.status === "end" && Array.isArray(j.result)) {
+                                    addSources(chat, j.result);
+                                }
                             } catch {
                             }
                         } else if (event === "done") {
@@ -912,112 +754,44 @@ window.marked = window.marked || {
                                 if (j.conversation_id) localStorage.setItem("bmb_convo", j.conversation_id);
                             } catch {
                             }
-                            flushBucket();
+                            flush();
                             const ts = document.createElement("div");
                             ts.className = "bmb-ts";
                             ts.textContent = new Date().toLocaleTimeString();
                             w.appendChild(ts);
-                            onDone?.();
                         }
                     }
                 }
             } catch (e) {
-                if (ctrl.signal.aborted) {
-                    dlog("SSE aborted");
-                } else {
+                if (ctrl.signal.aborted) dlog("SSE aborted");
+                else {
                     dlog("SSE error", e);
-                    await renderAssistantReply(chatEl, "\n\n_(Akış kesildi. Tekrar deneyebilirsiniz.)_");
+                    const err = document.createElement("div");
+                    err.className = "bmb-b a";
+                    err.innerHTML = linkifyHTML(window.marked.parse("_Akış kesildi. Tekrar deneyebilirsiniz._"));
+                    chat.appendChild(err);
                 }
             } finally {
                 if (activeStream === ctrl) activeStream = null;
             }
         }
 
-        // ===== typewriter used by HTTP fallback
-        function typeWriter(el, text, msPerChar = 16) {
-            return new Promise((res) => {
-                const full = normalizeMd(text || "");
-                let i = 0,
-                    len = full.length;
-                const id = setInterval(() => {
-                    i++;
-                    el.innerHTML = window.marked.parse(full.slice(0, i));
-                    if (i >= len) {
-                        clearInterval(id);
-                        el.innerHTML = linkifyHTML(el.innerHTML);
-                        res();
-                    }
-                }, msPerChar);
-            });
-        }
-
-        const renderAssistantReply = async (chatEl, fullText) => {
-            const steps = splitSteps(fullText).slice(0, 8);
-            for (const step of steps) {
-                const remove = showTyping(chatEl);
-                const w = document.createElement("div");
-                w.className = "bmb-b a";
-                chatEl.appendChild(w);
-                chatEl.scrollTop = chatEl.scrollHeight;
-                remove();
-                let msPerChar = 16;
-                await typeWriter(w, step, msPerChar);
-                const ts = document.createElement("div");
-                ts.className = "bmb-ts";
-                ts.textContent = new Date().toLocaleTimeString();
-                w.appendChild(ts);
-            }
-        };
-
-        // ===== send
+        // ===== Send handler =====
         function send() {
             const txt = (input?.value || "").trim();
             const files = fileInput?.files || null;
             if (!txt && (!files || files.length === 0)) return;
 
-            // user's bubble
             if (txt) addBubble(chat, txt, "user");
-
-            // quick previews (images)
-            if (files && files.length) {
-                const imgUrls = [...files]
-                    .filter((f) => f.type.startsWith("image/"))
-                    .map((f) => URL.createObjectURL(f));
-                if (imgUrls.length) {
-                    const pre = document.createElement("div");
-                    pre.className = "bmb-previews";
-                    imgUrls.forEach((u) => {
-                        const im = document.createElement("img");
-                        im.src = u;
-                        pre.appendChild(im);
-                    });
-                    const w = document.createElement("div");
-                    w.className = "bmb-b u";
-                    w.appendChild(pre);
-                    const ts = document.createElement("div");
-                    ts.className = "bmb-ts";
-                    ts.textContent = new Date().toLocaleTimeString();
-                    w.appendChild(ts);
-                    chat.appendChild(w);
-                    chat.scrollTop = chat.scrollHeight;
-                    setTimeout(() => imgUrls.forEach((u) => URL.revokeObjectURL(u)), 30000);
-                }
-            }
+            if (files && files.length) addImagePreview(chat, files);
 
             const removeTyping = showTyping(chat);
-            sseSend(
-                txt,
-                fileInput,
-                chat,
-                () => {
-                },
-                () => {
-                    try {
-                        removeTyping();
-                    } catch {
-                    }
+            sseSend(txt, files).finally(() => {
+                try {
+                    removeTyping();
+                } catch {
                 }
-            );
+            });
 
             if (input) input.value = "";
             if (fileInput) {
@@ -1026,13 +800,9 @@ window.marked = window.marked || {
             }
         }
 
+        // form events
         form?.addEventListener("submit", (e) => {
             e.preventDefault();
-            e.stopPropagation();
-        });
-        sendB?.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
             send();
         });
         input?.addEventListener("keydown", (e) => {
@@ -1044,14 +814,20 @@ window.marked = window.marked || {
 
         // stop voice when modal closes
         const mo = new MutationObserver(() => {
-            if (!document.body.classList.contains("bmb-modal-open")) srStop();
+            if (!document.body.classList.contains("bmb-modal-open")) {
+                try {
+                    srStop();
+                } catch {
+                }
+            }
         });
         mo.observe(document.body, {attributes: true, attributeFilter: ["class"]});
 
+        // optional first message (non-blocking)
         const first = (opts.initialText || "").trim();
         if (first) {
             addBubble(chat, first, "user");
-            httpSend(first);
+            sseSend(first, null);
         }
 
         return {

@@ -8,7 +8,7 @@ from typing import Optional, List, Tuple, Dict, Any
 
 import numpy as np
 
-# Light, safe defaults for tiny boxes (Render)
+# Make tiny boxes happy
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_NUM_THREADS", "1")
@@ -28,8 +28,8 @@ MODEL_PATH = os.environ.get("COPILOT_EMBED_MODEL", "models/copilot-embed")
 USE_MEMMAP = os.getenv("COPILOT_MEMMAP", "1") != "0"
 
 # Lazy singletons
-_model = None  # SentenceTransformer
-_index = None  # FAISS index
+_model = None        # SentenceTransformer
+_index = None        # FAISS index
 _corpus: Optional[List[Dict]] = None
 _vecs: Optional[np.ndarray] = None
 
@@ -45,7 +45,7 @@ def _load() -> None:
     if _corpus is None:
         corpus_path = BASE / "corpus.jsonl"
         if not corpus_path.exists():
-            raise FileNotFoundError(f"Corpus not found at {corpus_path}. Run your index builder.")
+            raise FileNotFoundError(f"Corpus not found at {corpus_path}. Build your index.")
         with corpus_path.open("r", encoding="utf-8") as f:
             _corpus = [json.loads(l) for l in f if l.strip()]
 
@@ -55,7 +55,7 @@ def _load() -> None:
     if _index is None and _vecs is None:
         vec_path = BASE / "embeddings.npy"
         if not vec_path.exists():
-            raise FileNotFoundError(f"Embeddings not found at {vec_path}. Run your index builder.")
+            raise FileNotFoundError(f"Embeddings not found at {vec_path}. Build your index.")
         _vecs = np.load(vec_path, mmap_mode="r" if USE_MEMMAP else None)
         if _vecs.dtype != np.float32:
             _vecs = _vecs.astype(np.float32, copy=False)

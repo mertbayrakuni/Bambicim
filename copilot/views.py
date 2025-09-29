@@ -12,7 +12,7 @@ from django.http import StreamingHttpResponse, JsonResponse, HttpRequest
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import Conversation, Message, Attachment
+from .models import Conversation, Attachment
 from .retrieval import hybrid_search as rsearch
 
 
@@ -42,7 +42,7 @@ def _is_tr(s: str) -> bool:
     return bool(re.search(r"[ıİşŞğĞçÇöÖüÜ]", s or ""))
 
 
-# ---------- OpenAI (v1 SDK) ----------
+# ---------- OpenAI v1 SDK ----------
 from openai import OpenAI
 
 _client = None
@@ -153,15 +153,14 @@ def chat_sse(request: HttpRequest):
     if not user_text:
         return JsonResponse({"error": "empty message"}, status=400)
 
-    # persist the user message
     with transaction.atomic():
         convo, created = Conversation.objects.get_or_create(id=cid, defaults={"title": _title_from(user_text)})
         if created and not convo.title:
             convo.title = _title_from(user_text)
             convo.save(update_fields=["title"])
+        from .models import Message  # avoid circular on import time
         Message.objects.create(id=_id(), conversation=convo, role="user", content_md=user_text)
 
-    # prepare assistant content
     full_reply, cites = _assistant_reply(user_text)
 
     def stream() -> Iterable[bytes]:
@@ -178,10 +177,9 @@ def chat_sse(request: HttpRequest):
             yield _sse("delta", {"text": full_reply[i:i + step]}).encode("utf-8")
             time.sleep(0.035)
 
-        Message.objects.create(
-            id=_id(), conversation_id=cid, role="assistant",
-            content_md=full_reply, meta={"citations": cites}
-        )
+        from .models import Message
+        Message.objects.create(id=_id(), conversation_id=cid, role="assistant",
+                               content_md=full_reply, meta={"citations": cites})
         yield _sse("done", {"conversation_id": cid}).encode("utf-8")
 
     resp = StreamingHttpResponse(stream(), content_type="text/event-stream; charset=utf-8")
