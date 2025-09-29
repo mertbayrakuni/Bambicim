@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import Conversation, Message, Attachment
-from .retrieval import search as rsearch
+from .retrieval import hybrid_search as rsearch
 
 
 # ---------- helpers ----------
@@ -84,7 +84,10 @@ GREETINGS = {
 
 def _assistant_reply(user_text: str) -> tuple[str, list[dict]]:
     cites = rsearch(user_text, 5)
-
+    for c in cites or []:
+        if not c.get("snippet"):
+            t = (c.get("text") or "").strip()
+            c["snippet"] = (t[:220] + " …") if len(t) > 220 else t
     intro = "Bambi Copilot burada 💖 Kısaca özetliyorum…"
     if any(w in user_text.lower() for w in ("iletişim", "contact", "email", "mail")):
         intro = "İletişim bilgilerini aradım. Aşağıda en ilgili sonuçlar var."
