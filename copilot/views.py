@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 import uuid
 from typing import Iterable
@@ -82,37 +83,26 @@ GREETINGS = {
 }
 
 
+def _is_tr(s: str) -> bool:
+    return bool(re.search(r"[ıİşŞğĞçÇöÖüÜ]", s or ""))
+
+
+def _llm_answer(question: str, lang: str, hits: list[dict]) -> str:
+    # identical to the helper in core/views.py (copy the same function body)
+    ...
+    # (paste the exact _llm_answer from above)
+    ...
+
+
 def _assistant_reply(user_text: str) -> tuple[str, list[dict]]:
-    cites = rsearch(user_text, 5)
-    for c in cites or []:
+    cites = rsearch(user_text, 6) or []
+    for c in cites:
         if not c.get("snippet"):
             t = (c.get("text") or "").strip()
             c["snippet"] = (t[:220] + " …") if len(t) > 220 else t
-    intro = "Bambi Copilot burada 💖 Kısaca özetliyorum…"
-    if any(w in user_text.lower() for w in ("iletişim", "contact", "email", "mail")):
-        intro = "İletişim bilgilerini aradım. Aşağıda en ilgili sonuçlar var."
-
-    synthesis = ""
-    if cites:
-        # stitch 1–2 best snippets into a short answer
-        top_snips = [c["snippet"] for c in cites[:2] if c.get("snippet")]
-        if top_snips:
-            synthesis = " ".join(top_snips)[:400]
-
-    parts = [f"{intro}"]
-    if synthesis:
-        parts.append("")
-        parts.append(synthesis)
-
-    if cites:
-        parts.append("\n**Kaynaklar**")
-        for c in cites:
-            title = c["title"] or c["url"]
-            parts.append(f"- [{title}]({c['url']}) — {c['snippet']}")
-    else:
-        parts.append("\nUygun kaynak bulamadım; biraz daha bağlam verir misin?")
-
-    return "\n".join(parts), cites
+    lang = "tr" if _is_tr(user_text) else "en"
+    answer = _llm_answer(user_text, lang, cites)
+    return answer, cites
 
 
 @csrf_exempt

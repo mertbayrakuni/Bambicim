@@ -15,20 +15,18 @@ from django.core.mail import EmailMessage
 from django.core.validators import validate_email
 from django.db.models import F
 from django.http import Http404
-from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.html import strip_tags
 from django.utils.text import get_valid_filename
 from django.views.decorators.cache import cache_control
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
+from copilot.retrieval import hybrid_search
 from utils.github import get_recent_public_repos_cached
 from .art import generate_pixel_art, run_in_thread, _prompt_for
-from .bot import reply_for  # your bot
 from .models import Scene, Item, Inventory, ChoiceLog, Achievement, UserAchievement
 from .models import SceneArt
 
@@ -541,12 +539,78 @@ def _save_uploads(files):
     return saved
 
 
+def _is_tr(s: str) -> bool:
+    return bool(re.search(r"[ıİşŞğĞçÇöÖüÜ]", s or ""))
+
+
+def _llm_answer(question: str, lang: str, hits: list[dict], history: list[dict] | None = None) -> str:
+    """
+    Compose one clean answer from retrieved context.
+    Uses OpenAI if OPENAI_API_KEY is set; otherwise a concise extract fallback.
+    """
+    # Build compact context
+    blocks = []
+    for h in hits[:4]:
+        title = (h.get("title") or "Untitled").strip()
+        url = h.get("url") or ""
+        text = (h.get("text") or h.get("snippet") or "").strip()
+        if len(text) > 600:
+            text = text[:600].rsplit(" ", 1)[0] + " …"
+        blocks.append(f"[{title}]({url})\n{text}")
+    context = "\n\n---\n\n".join(blocks)
+
+    # Try OpenAI
+    try:
+        import openai  # pip install openai==0.28.1
+        api_key = os.getenv("OPENAI_API_KEY") or ""
+        if api_key:
+            openai.api_key = api_key
+            system = (
+                "You are Bambi — a playful but precise assistant for the Bambicim website. "
+                "Speak in the user's language (TR/EN). Use ONLY the provided context for facts about Bambicim; "
+                "if something is not present, say you don’t know. Be short, warm, and actionable."
+            )
+            if lang != "en":
+                system += " Türkçe yazıyorsan kısa, sıcak ve net ol. Metinde yoksa ‘bilmiyorum’ de."
+            msgs = [{"role": "system", "content": system}]
+            msgs.append({
+                "role": "user",
+                "content": f"Question: {question}\n\nContext:\n{context}\n\n"
+                           f"Write a direct answer in {lang.upper()}. Then list 2–3 short sources."
+            })
+            rsp = openai.ChatCompletion.create(
+                model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+                temperature=0.3,
+                messages=msgs,
+                max_tokens=450,
+            )
+            return rsp.choices[0].message["content"].strip()
+    except Exception:
+        pass
+
+    # Fallback (no OpenAI): concise extract + sources
+    if not hits:
+        return "Bununla ilgili bir şey bulamadım — biraz daha detay verir misin?" if lang != "en" \
+            else "I couldn’t find anything for that — give me a bit more detail?"
+    body = (hits[0].get("text") or hits[0].get("snippet") or "").strip()
+    if len(body) > 400:
+        body = body[:400].rsplit(" ", 1)[0] + " …"
+    src = "\n".join([f"- {(h.get('title') or 'Source').strip()} → {h.get('url', '')}" for h in hits[:3]])
+    head = "Özet" if lang != "en" else "Summary"
+    return f"**{head}**\n{body}\n\n**Sources**\n{src}"
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+
+
 @csrf_exempt
 def api_chat(request):
     if request.method != "POST":
         return JsonResponse({"error": "method_not_allowed"}, status=405)
 
     try:
+        # read input + handle optional uploads
         q = ""
         files_meta = []
         if request.content_type and "multipart/form-data" in request.content_type:
@@ -558,23 +622,26 @@ def api_chat(request):
             data = json.loads(request.body or "{}")
             q = (data.get("q") or "").strip()
 
-        # Build the bot context (inventory / achievements if you have them)
-        ctx = {}
-        # ctx["inv"] = get_user_inventory_rows(request.user) if request.user.is_authenticated else []
-        # ctx["ach"] = get_user_achievements_rows(request.user) if request.user.is_authenticated else []
-        if files_meta:
-            ctx["attachments"] = files_meta
+        lang = "tr" if _is_tr(q) else "en"
 
-        text = reply_for(q, user_name=request.user.username if request.user.is_authenticated else None,
-                         context=ctx)
+        # retrieve
+        hits = hybrid_search(q, k=6) or []
+        for c in hits:
+            if not c.get("snippet"):
+                t = (c.get("text") or "").strip()
+                c["snippet"] = (t[:220] + " …") if len(t) > 220 else t
 
-        # split image vs others for the frontend helpers
+        # synthesize
+        text = _llm_answer(q, lang, hits, history=None)
+
+        # small convenience for the UI
         urls = [f["url"] for f in files_meta if (f.get("content_type") or "").startswith("image/")]
+
         return JsonResponse({
             "reply": text,
             "urls": urls,
             "files": files_meta,
         })
     except Exception as e:
-        # expose short reason to the client so your debug bubble shows it
+        log.exception("chat error")
         return JsonResponse({"error": "bot_error", "detail": str(e)}, status=500)
