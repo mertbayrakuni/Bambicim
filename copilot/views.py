@@ -1,3 +1,4 @@
+# copilot/views.py
 from __future__ import annotations
 
 import json
@@ -5,190 +6,169 @@ import os
 import re
 import time
 import uuid
-from typing import Iterable, List, Dict
+from typing import Iterable, Dict, Any, List
 
-from django.db import transaction
+from django.conf import settings
+from django.core.files.storage import default_storage
 from django.http import StreamingHttpResponse, JsonResponse, HttpRequest
-from django.shortcuts import get_object_or_404
+from django.utils.cache import patch_cache_control
+from django.utils.text import get_valid_filename
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import Conversation, Attachment
-from .retrieval import hybrid_search as rsearch
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None  # type: ignore
 
 
-# ---------- tiny utils ----------
-def _id() -> str: return uuid.uuid4().hex[:24]
-
-
-def _json(request: HttpRequest) -> dict:
-    try:
-        return json.loads((request.body or b"").decode("utf-8"))
-    except Exception:
-        return {}
-
-
-def _sse(event: str, data: dict | str) -> str:
-    if not isinstance(data, str):
-        data = json.dumps(data, ensure_ascii=False)
-    return f"event: {event}\ndata: {data}\n\n"
-
-
-def _title_from(msg: str) -> str:
-    msg = (msg or "").strip().split("\n", 1)[0]
-    return (msg[:42] + "…") if len(msg) > 45 else msg
+# --- minimal helpers ----------------------------------------------------------
+def _id() -> str: return uuid.uuid4().hex
 
 
 def _is_tr(s: str) -> bool:
     return bool(re.search(r"[ıİşŞğĞçÇöÖüÜ]", s or ""))
 
 
-# ---------- OpenAI v1 SDK ----------
-from openai import OpenAI
-
-_client = None
-
-
-def _client_or_none():
-    global _client
-    if _client is None and os.getenv("OPENAI_API_KEY"):
-        _client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    return _client
+def _safe_name(name: str) -> str:
+    base, ext = os.path.splitext(get_valid_filename(name or "file"))
+    return f"{base[:40]}{ext.lower()}"
 
 
-def _llm_answer(question: str, lang: str, hits: List[Dict]) -> str:
-    # Compact context
-    blocks = []
-    for h in (hits or [])[:4]:
-        title = (h.get("title") or "Untitled").strip()
-        url = h.get("url") or ""
-        text = (h.get("text") or h.get("snippet") or "").strip()
-        if len(text) > 600:
-            text = text[:600].rsplit(" ", 1)[0] + " …"
-        blocks.append(f"[{title}]({url})\n{text}")
-    context = "\n\n---\n\n".join(blocks) if blocks else "NO_CONTEXT"
-
-    cli = _client_or_none()
-    if not cli:
-        # Fallback: extractive summary + sources
-        if not hits:
-            return "Bununla ilgili bir şey bulamadım — biraz daha detay verir misin?" if lang != "en" \
-                else "I couldn’t find anything for that — give me a bit more detail?"
-        body = (hits[0].get("text") or hits[0].get("snippet") or "").strip()
-        if len(body) > 400: body = body[:400].rsplit(" ", 1)[0] + " …"
-        src = "\n".join([f"- {(h.get('title') or 'Source').strip()} → {h.get('url', '')}" for h in hits[:3]])
-        head = "Özet" if lang != "en" else "Summary"
-        return f"**{head}**\n{body}\n\n**Sources**\n{src}"
-
-    system = (
-        "You are Bambi — a playful but precise assistant for the Bambicim website. "
-        "Answer in the user’s language (TR/EN). Use ONLY the provided context for facts about Bambicim; "
-        "if something isn’t there, say you don’t know. Be brief, warm, and actionable."
-    )
-    if lang != "en":
-        system += " Türkçe yaz; metinde yoksa bilmiyorum de."
-
-    msgs = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": f"Question: {question}\n\nContext:\n{context}\n\n"
-                                    f"Answer in {lang.upper()}. Then list 2–3 short sources."}
-    ]
-    rsp = cli.chat.completions.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-        temperature=0.3,
-        messages=msgs,
-        max_tokens=450,
-    )
-    return (rsp.choices[0].message.content or "").strip()
+def _save_uploads(files) -> List[Dict[str, Any]]:
+    saved = []
+    for f in files:
+        path = f"chat_uploads/{_id()}-{_safe_name(f.name)}"
+        saved_path = default_storage.save(path, f)
+        url = default_storage.url(saved_path)
+        saved.append({
+            "name": f.name, "url": url,
+            "size": getattr(f, "size", 0),
+            "content_type": getattr(f, "content_type", "") or ""
+        })
+    return saved
 
 
-# ---------- endpoints ----------
+# --- site links / persona (mirror core) --------------------------------------
+BASE = "https://bambicim.com"
+LINKS = {
+    "home": f"{BASE}/",
+    "work": f"{BASE}/#work",
+    "game": f"{BASE}/#game",
+    "contact": f"{BASE}/#contact",
+    "login": f"{BASE}/accounts/login/",
+    "signup": f"{BASE}/accounts/signup/",
+    "profile": f"{BASE}/profile/",
+    "privacy": f"{BASE}/privacy/",
+    "terms": f"{BASE}/terms/",
+}
+
+MODEL = getattr(settings, "BMB_MODEL", "gpt-4o-mini")
+OPENAI_API_KEY = getattr(settings, "OPENAI_API_KEY", "")
+
+PERSONA = (getattr(settings, "BMB_SYS_PERSONA", "") or f"""
+You are **Bambi** — playful, flirty, helpful assistant of bambicim.com.
+Tone: warm, concise, emoji-friendly. Bilingual (TR/EN).
+Be an expert on the site and always give exact links when relevant.
+Links: Home {LINKS['home']} · Work {LINKS['work']} · Game {LINKS['game']} · Contact {LINKS['contact']}
+Auth: Login {LINKS['login']} · Signup {LINKS['signup']} · Profile {LINKS['profile']}
+Policies: Privacy {LINKS['privacy']} · Terms {LINKS['terms']}
+""").strip()
+
+
+def _msgs_for(q: str, files_meta: List[Dict[str, Any]] | None = None) -> List[Dict[str, str]]:
+    msgs: List[Dict[str, str]] = [{"role": "system", "content": PERSONA}]
+    u = (q or "Hello").strip()
+    if files_meta:
+        desc = "\n".join(f"- {f.get('name')} · {f.get('content_type')} · {f.get('size', 0)} bytes"
+                         for f in files_meta)
+        u = (u + f"\n\n(Attached files)\n{desc}").strip()
+    msgs.append({"role": "user", "content": u})
+    return msgs
+
+
+def _client() -> OpenAI | None:
+    if not OPENAI_API_KEY or OpenAI is None:
+        return None
+    return OpenAI(api_key=OPENAI_API_KEY)
+
+
+def _sse(event: str, data: Dict[str, Any] | str) -> bytes:
+    if not isinstance(data, str):
+        data = json.dumps(data, ensure_ascii=False)
+    return f"event: {event}\ndata: {data}\n\n".encode("utf-8")
+
+
+# --- /api/copilot/upload (optional files before chat) ------------------------
 @csrf_exempt
-def upload_files(request: HttpRequest):
+def upload(request: HttpRequest):
     if request.method != "POST":
         return JsonResponse({"error": "POST only"}, status=405)
+    convo = request.POST.get("conversation_id") or _id()
     files = request.FILES.getlist("files") or []
-    cid = request.POST.get("conversation_id") or _id()
-    convo, _ = Conversation.objects.get_or_create(id=cid, defaults={"title": ""})
-    out = []
-    for f in files:
-        att = Attachment(id=_id(), conversation=convo, file=f)
-        att.set_meta_from_file()
-        att.save()
-        out.append({
-            "id": att.id, "name": f.name, "url": att.file.url,
-            "mime": att.mime, "size": att.size, "conversation_id": convo.id
-        })
+    meta = _save_uploads(files)
+    # return the convo id & file metas (no DB needed)
+    out = [{"conversation_id": convo, **m} for m in meta] or [{"conversation_id": convo}]
     return JsonResponse(out, safe=False)
 
 
+# --- /api/copilot/chat (SSE streaming) ---------------------------------------
 @csrf_exempt
-def search_api(request: HttpRequest):
-    if request.method != "POST":
-        return JsonResponse({"error": "POST only"}, status=405)
-    payload = _json(request) if request.body else request.POST
-    q = (payload.get("q") or "").strip()
-    k = int(payload.get("k") or 6)
-    return JsonResponse({"q": q, "results": rsearch(q, k)})
-
-
-def _assistant_reply(user_text: str) -> tuple[str, list[dict]]:
-    cites = rsearch(user_text, 6) or []
-    for c in cites:
-        if not c.get("snippet"):
-            t = (c.get("text") or "").strip()
-            c["snippet"] = (t[:220] + " …") if len(t) > 220 else t
-    lang = "tr" if _is_tr(user_text) else "en"
-    answer = _llm_answer(user_text, lang, cites)
-    return answer, cites
-
-
-@csrf_exempt
-def chat_sse(request: HttpRequest):
+def chat(request: HttpRequest):
     if request.method != "POST":
         return JsonResponse({"error": "POST only"}, status=405)
 
-    payload = _json(request) if request.body else request.POST
-    user_text = (payload.get("message") or "").strip()
-    cid = payload.get("conversation_id") or _id()
-    if not user_text:
+    try:
+        payload = json.loads((request.body or b"").decode("utf-8"))
+    except Exception:
+        payload = {}
+    q = (payload.get("message") or "").strip()
+    conv_id = payload.get("conversation_id") or _id()
+    files_meta: List[Dict[str, Any]] = []  # if you want to stitch uploads, pass meta here
+
+    if not q:
         return JsonResponse({"error": "empty message"}, status=400)
 
-    with transaction.atomic():
-        convo, created = Conversation.objects.get_or_create(id=cid, defaults={"title": _title_from(user_text)})
-        if created and not convo.title:
-            convo.title = _title_from(user_text)
-            convo.save(update_fields=["title"])
-        from .models import Message  # avoid circular on import time
-        Message.objects.create(id=_id(), conversation=convo, role="user", content_md=user_text)
-
-    full_reply, cites = _assistant_reply(user_text)
+    msgs = _msgs_for(q, files_meta)
+    cli = _client()
 
     def stream() -> Iterable[bytes]:
-        yield _sse("delta", {"text": "🪄 thinking…"}).encode("utf-8")
-        time.sleep(0.12)
+        # small warm-up hint so the UI shows life immediately
+        yield _sse("delta", {"text": "🪄 thinking…"})
+        time.sleep(0.08)
 
-        if cites:
-            yield _sse("tool", {"name": "retrieve", "status": "start", "args": {"q": user_text}}).encode("utf-8")
-            time.sleep(0.08)
-            yield _sse("tool", {"name": "retrieve", "status": "end", "result": cites}).encode("utf-8")
+        if not cli:
+            # offline fallback: short canned answer
+            lang = "tr" if _is_tr(q) else "en"
+            text = ("Şu an çevrimdışıyım; bu arada şunlara bakabilirsin: "
+                    f"Home {LINKS['home']} · Work {LINKS['work']} · Game {LINKS['game']} · Contact {LINKS['contact']}"
+                    ) if lang == "tr" else \
+                ("I’m offline; meanwhile check: "
+                 f"Home {LINKS['home']} · Work {LINKS['work']} · Game {LINKS['game']} · Contact {LINKS['contact']}")
+            # typewriter-ish chunks
+            step = max(24, len(text) // 12)
+            for i in range(0, len(text), step):
+                yield _sse("delta", {"text": text[i:i + step]})
+                time.sleep(0.03)
+            yield _sse("done", {"conversation_id": conv_id})
+            return
 
-        step = max(24, len(full_reply) // 12)
-        for i in range(0, len(full_reply), step):
-            yield _sse("delta", {"text": full_reply[i:i + step]}).encode("utf-8")
-            time.sleep(0.035)
-
-        from .models import Message
-        Message.objects.create(id=_id(), conversation_id=cid, role="assistant",
-                               content_md=full_reply, meta={"citations": cites})
-        yield _sse("done", {"conversation_id": cid}).encode("utf-8")
+        try:
+            stream = cli.responses.stream(
+                model=MODEL,
+                input=[{"role": m["role"], "content": m["content"]} for m in msgs],
+                max_output_tokens=800,
+            )
+            for event in stream:
+                if event.type == "response.output_text.delta":
+                    yield _sse("delta", {"text": event.delta})
+                elif event.type == "response.completed":
+                    break
+            yield _sse("done", {"conversation_id": conv_id})
+        except Exception as e:
+            yield _sse("delta", {"text": f"\n\n_(error: {e})_"})
+            yield _sse("done", {"conversation_id": conv_id})
 
     resp = StreamingHttpResponse(stream(), content_type="text/event-stream; charset=utf-8")
-    resp["Cache-Control"] = "no-cache"
+    patch_cache_control(resp, no_cache=True)
     resp["X-Accel-Buffering"] = "no"
     return resp
-
-
-def thread_get(_request: HttpRequest, cid: str):
-    convo = get_object_or_404(Conversation, id=cid)
-    msgs = list(convo.messages.order_by("created_at").values("role", "content_md", "created_at"))
-    return JsonResponse({"id": cid, "title": convo.title, "messages": msgs})
