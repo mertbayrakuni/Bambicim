@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 import uuid
-from typing import Iterable
+from typing import Iterable, List, Dict
 
 from django.db import transaction
 from django.http import StreamingHttpResponse, JsonResponse, HttpRequest
@@ -15,14 +16,13 @@ from .models import Conversation, Message, Attachment
 from .retrieval import hybrid_search as rsearch
 
 
-# ---------- helpers ----------
-def _id() -> str:
-    return uuid.uuid4().hex[:24]
+# ---------- tiny utils ----------
+def _id() -> str: return uuid.uuid4().hex[:24]
 
 
 def _json(request: HttpRequest) -> dict:
     try:
-        return json.loads(request.body.decode("utf-8"))
+        return json.loads((request.body or b"").decode("utf-8"))
     except Exception:
         return {}
 
@@ -36,6 +36,69 @@ def _sse(event: str, data: dict | str) -> str:
 def _title_from(msg: str) -> str:
     msg = (msg or "").strip().split("\n", 1)[0]
     return (msg[:42] + "…") if len(msg) > 45 else msg
+
+
+def _is_tr(s: str) -> bool:
+    return bool(re.search(r"[ıİşŞğĞçÇöÖüÜ]", s or ""))
+
+
+# ---------- OpenAI (v1 SDK) ----------
+from openai import OpenAI
+
+_client = None
+
+
+def _client_or_none():
+    global _client
+    if _client is None and os.getenv("OPENAI_API_KEY"):
+        _client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    return _client
+
+
+def _llm_answer(question: str, lang: str, hits: List[Dict]) -> str:
+    # Compact context
+    blocks = []
+    for h in (hits or [])[:4]:
+        title = (h.get("title") or "Untitled").strip()
+        url = h.get("url") or ""
+        text = (h.get("text") or h.get("snippet") or "").strip()
+        if len(text) > 600:
+            text = text[:600].rsplit(" ", 1)[0] + " …"
+        blocks.append(f"[{title}]({url})\n{text}")
+    context = "\n\n---\n\n".join(blocks) if blocks else "NO_CONTEXT"
+
+    cli = _client_or_none()
+    if not cli:
+        # Fallback: extractive summary + sources
+        if not hits:
+            return "Bununla ilgili bir şey bulamadım — biraz daha detay verir misin?" if lang != "en" \
+                else "I couldn’t find anything for that — give me a bit more detail?"
+        body = (hits[0].get("text") or hits[0].get("snippet") or "").strip()
+        if len(body) > 400: body = body[:400].rsplit(" ", 1)[0] + " …"
+        src = "\n".join([f"- {(h.get('title') or 'Source').strip()} → {h.get('url', '')}" for h in hits[:3]])
+        head = "Özet" if lang != "en" else "Summary"
+        return f"**{head}**\n{body}\n\n**Sources**\n{src}"
+
+    system = (
+        "You are Bambi — a playful but precise assistant for the Bambicim website. "
+        "Answer in the user’s language (TR/EN). Use ONLY the provided context for facts about Bambicim; "
+        "if something isn’t there, say you don’t know. Be brief, warm, and actionable."
+    )
+    if lang != "en":
+        system += " Türkçe yaz; metinde yoksa bilmiyorum de."
+
+    msgs = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f"Question: {question}\n\nContext:\n{context}\n\n"
+                                    f"Answer in {lang.upper()}. Then list 2–3 short sources."}
+    ]
+    rsp = cli.chat.completions.create(
+        model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+        temperature=0.3,
+        messages=msgs,
+        max_tokens=450,
+    )
+    return (rsp.choices[0].message.content or "").strip()
 
 
 # ---------- endpoints ----------
@@ -68,32 +131,6 @@ def search_api(request: HttpRequest):
     return JsonResponse({"q": q, "results": rsearch(q, k)})
 
 
-# add near the other imports
-import unicodedata
-
-
-def _norm(s: str) -> str:
-    s = (s or "").lower()
-    s = unicodedata.normalize("NFKD", s)
-    return "".join(ch for ch in s if not unicodedata.combining(ch))
-
-
-GREETINGS = {
-    "merhaba", "selam", "selamlar", "hey", "hi", "hello", "slm", "nbr", "nasilsin", "nasılsın"
-}
-
-
-def _is_tr(s: str) -> bool:
-    return bool(re.search(r"[ıİşŞğĞçÇöÖüÜ]", s or ""))
-
-
-def _llm_answer(question: str, lang: str, hits: list[dict]) -> str:
-    # identical to the helper in core/views.py (copy the same function body)
-    ...
-    # (paste the exact _llm_answer from above)
-    ...
-
-
 def _assistant_reply(user_text: str) -> tuple[str, list[dict]]:
     cites = rsearch(user_text, 6) or []
     for c in cites:
@@ -107,21 +144,12 @@ def _assistant_reply(user_text: str) -> tuple[str, list[dict]]:
 
 @csrf_exempt
 def chat_sse(request: HttpRequest):
-    """
-    SSE stream. Accepts JSON:
-    {
-      "conversation_id": "...",  # optional
-      "message": "text",
-      "file_ids": []
-    }
-    """
     if request.method != "POST":
         return JsonResponse({"error": "POST only"}, status=405)
 
     payload = _json(request) if request.body else request.POST
     user_text = (payload.get("message") or "").strip()
     cid = payload.get("conversation_id") or _id()
-
     if not user_text:
         return JsonResponse({"error": "empty message"}, status=400)
 
@@ -131,29 +159,25 @@ def chat_sse(request: HttpRequest):
         if created and not convo.title:
             convo.title = _title_from(user_text)
             convo.save(update_fields=["title"])
-        m_user = Message.objects.create(id=_id(), conversation=convo, role="user", content_md=user_text)
+        Message.objects.create(id=_id(), conversation=convo, role="user", content_md=user_text)
 
     # prepare assistant content
     full_reply, cites = _assistant_reply(user_text)
 
     def stream() -> Iterable[bytes]:
-        # send a small greeting first (fast TTFB)
-        yield _sse("delta", {"text": "🪄 Hazırlanıyorum…"}).encode("utf-8")
-        time.sleep(0.15)
+        yield _sse("delta", {"text": "🪄 thinking…"}).encode("utf-8")
+        time.sleep(0.12)
 
-        # fake a tool call if we used retrieval
         if cites:
             yield _sse("tool", {"name": "retrieve", "status": "start", "args": {"q": user_text}}).encode("utf-8")
-            time.sleep(0.10)
+            time.sleep(0.08)
             yield _sse("tool", {"name": "retrieve", "status": "end", "result": cites}).encode("utf-8")
 
-        # stream the markdown reply in chunks
-        step = max(20, len(full_reply) // 12)
+        step = max(24, len(full_reply) // 12)
         for i in range(0, len(full_reply), step):
             yield _sse("delta", {"text": full_reply[i:i + step]}).encode("utf-8")
-            time.sleep(0.04)
+            time.sleep(0.035)
 
-        # persist assistant message at the end
         Message.objects.create(
             id=_id(), conversation_id=cid, role="assistant",
             content_md=full_reply, meta={"citations": cites}
@@ -162,12 +186,11 @@ def chat_sse(request: HttpRequest):
 
     resp = StreamingHttpResponse(stream(), content_type="text/event-stream; charset=utf-8")
     resp["Cache-Control"] = "no-cache"
-    resp["X-Accel-Buffering"] = "no"  # nginx: prevent buffering
+    resp["X-Accel-Buffering"] = "no"
     return resp
 
 
-def thread_get(request: HttpRequest, cid: str):
+def thread_get(_request: HttpRequest, cid: str):
     convo = get_object_or_404(Conversation, id=cid)
-    msgs = list(convo.messages.order_by("created_at").values("id", "role", "content_md", "created_at", "meta"))
-    atts = list(convo.attachments.values("id", "mime", "size", "thumbnail_url", "file"))
-    return JsonResponse({"id": convo.id, "title": convo.title, "messages": msgs, "attachments": atts})
+    msgs = list(convo.messages.order_by("created_at").values("role", "content_md", "created_at"))
+    return JsonResponse({"id": cid, "title": convo.title, "messages": msgs})

@@ -14,3 +14,19 @@ staticfiles/
 # OS / IDE
 .DS_Store
 .idea/
+
+# indices & models
+copilot_index/*.npy
+copilot_index/*.faiss
+copilot_index/*.pt
+copilot_index/*/  # if you nest shards
+
+# local data dumps
+data/*.jsonl
+data/*.csv
+data/*.xlsx
+!data/qa_site.jsonl  # keep the curated seed
+
+# logs / artifacts
+logs/*
+*.log
