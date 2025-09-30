@@ -109,3 +109,33 @@ class Paragraph(models.Model):
 
     def __str__(self):
         return f"{self.doc_id}#{self.order}"
+
+
+# === API call analytics ========================================================
+from django.conf import settings
+
+
+class APICall(models.Model):
+    """
+    One row per provider call (e.g., OpenAI). Use for cost/tokens/latency stats.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                             on_delete=models.SET_NULL)
+    conversation = models.ForeignKey(Conversation, null=True, blank=True,
+                                     on_delete=models.SET_NULL)
+    provider = models.CharField(max_length=64, default="openai", db_index=True)
+    model = models.CharField(max_length=64, blank=True, db_index=True)
+
+    tokens_in = models.IntegerField(default=0)
+    tokens_out = models.IntegerField(default=0)
+    cost_usd = models.DecimalField(max_digits=9, decimal_places=6, default=0)
+
+    latency_ms = models.IntegerField(default=0)
+    success = models.BooleanField(default=True)
+    http_status = models.IntegerField(default=200)
+    meta = models.JSONField(default=dict, blank=True)
+
+    created_at = models.DateTimeField(default=_now, db_index=True)
+
+    def __str__(self):
+        return f"{self.provider}/{self.model} @{self.created_at:%Y-%m-%d %H:%M}"

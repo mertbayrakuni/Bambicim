@@ -135,3 +135,33 @@ class SceneArt(models.Model):
 
     def __str__(self):
         return f"{self.key} ({self.status})"
+
+
+# core/models.py
+from django.conf import settings
+from django.db import models
+from django.utils import timezone
+
+
+class TrafficEvent(models.Model):
+    KIND = [("visit", "Visit"), ("api", "API Call")]
+    kind = models.CharField(max_length=8, choices=KIND, default="visit")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                             on_delete=models.SET_NULL)
+    path = models.CharField(max_length=512, blank=True)
+    method = models.CharField(max_length=8, blank=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    provider = models.CharField(max_length=64, blank=True)  # e.g. "openai"
+    model = models.CharField(max_length=64, blank=True)  # e.g. "gpt-4o"
+    tokens_in = models.IntegerField(default=0)
+    tokens_out = models.IntegerField(default=0)
+    success = models.BooleanField(default=True)
+    latency_ms = models.IntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["created_at", "kind", "provider"])]
+
+    def __str__(self):
+        return f"{self.kind} {self.path} @{self.created_at:%Y-%m-%d %H:%M}"

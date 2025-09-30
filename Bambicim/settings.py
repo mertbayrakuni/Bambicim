@@ -90,7 +90,7 @@ INSTALLED_APPS = [
     "accounts",
     "portfolio",
     "django.contrib.sitemaps",
-    # "channels",           # 🚫 removed (not needed)
+    "copilot",
 ]
 
 MIDDLEWARE = [
@@ -102,9 +102,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-
-    # Keep only if you actually have this middleware implemented:
-    # "Bambicim.middleware.CanonicalHostRedirectMiddleware",
+    "core.middleware.TrafficMiddleware",
 ]
 
 ROOT_URLCONF = "Bambicim.urls"
