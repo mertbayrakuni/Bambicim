@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 from types import NoneType
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Optional, List, Dict, Any
 
 import numpy as np
 
@@ -28,8 +28,8 @@ MODEL_PATH = os.environ.get("COPILOT_EMBED_MODEL", "models/copilot-embed")
 USE_MEMMAP = os.getenv("COPILOT_MEMMAP", "1") != "0"
 
 # Lazy singletons
-_model = None        # SentenceTransformer
-_index = None        # FAISS index
+_model = None  # SentenceTransformer
+_index = None  # FAISS index
 _corpus: Optional[List[Dict]] = None
 _vecs: Optional[np.ndarray] = None
 
@@ -47,7 +47,7 @@ def _load() -> None:
         if not corpus_path.exists():
             raise FileNotFoundError(f"Corpus not found at {corpus_path}. Build your index.")
         with corpus_path.open("r", encoding="utf-8") as f:
-            _corpus = [json.loads(l) for l in f if l.strip()]
+            _corpus = [json.loads(line) for line in f if line.strip()]
 
     if faiss and _index is None and (BASE / "faiss.index").exists():
         _index = faiss.read_index(str(BASE / "faiss.index"))

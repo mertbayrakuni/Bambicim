@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import mimetypes
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils import timezone
@@ -112,8 +113,6 @@ class Paragraph(models.Model):
 
 
 # === API call analytics ========================================================
-from django.conf import settings
-
 
 class APICall(models.Model):
     """
