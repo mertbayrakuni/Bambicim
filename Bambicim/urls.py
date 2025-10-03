@@ -79,10 +79,10 @@ urlpatterns = [
          name="robots"),
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="sitemap"),
 
-    #blog
+    # blog
     path("blog/", include("blog.urls", namespace="blog")),
     path("blog/rss/", LatestPostsFeed(), name="blog_rss"),
 ]
 
-if settings.DEBUG or os.environ.get("DJANGO_SERVE_MEDIA") == "1":
+if settings.DEBUG or os.getenv("DJANGO_SERVE_MEDIA") == "1":
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
