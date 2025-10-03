@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     "portfolio",
     "django.contrib.sitemaps",
     "copilot",
+    "blog",
 ]
 
 MIDDLEWARE = [

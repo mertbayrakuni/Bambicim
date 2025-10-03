@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Blog — Bambicim{% endblock %}
+{% block content %}
+    <section class="wrap blog-index">
+        <h1 class="h-xl">Blog</h1>
+        {% if category %}<p>Category: {{ category.name }}</p>{% endif %}
+        {% if tag %}<p>Tag: {{ tag.name }}</p>{% endif %}
+
+        <div class="grid posts-grid">
+            {% for p in posts %}
+                <article class="card post-card">
+                    <a href="{{ p.get_absolute_url }}" class="post-cover">
+                        {% if p.cover_image %}
+                            <img src="{{ p.cover_image.url }}" alt="{{ p.title }}">
+                        {% endif %}
+                    </a>
+                    <div class="post-body">
+                        <h2 class="h-lg"><a href="{{ p.get_absolute_url }}">{{ p.title }}</a></h2>
+                        <p class="muted">{{ p.publish_at|date:"M d, Y" }} · {{ p.reading_time }} min read</p>
+                        <p>{{ p.excerpt|default:p.seo_description|default:p.title }}</p>
+                        <a class="btn" href="{{ p.get_absolute_url }}">Read</a>
+                    </div>
+                </article>
+            {% empty %}
+                <p>No posts yet.</p>
+            {% endfor %}
+        </div>
+
+        {% if is_paginated %}
+            <nav class="pager">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}">Prev</a>
+                {% endif %}
+                <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}">Next</a>
+                {% endif %}
+            </nav>
+        {% endif %}
+    </section>
+{% endblock %}

@@ -32,12 +32,10 @@
     <a href="{% url 'home' %}" class="brand">BAMBİCİM</a>
 
     <nav class="main-nav">
-        {# Use absolute anchors so they work from any page #}
         <a class="pill" href="{% url 'home' %}#work" data-anchor="work">Work</a>
         <a class="pill" href="{% url 'home' %}#game" data-anchor="game">Bambi Game</a>
         <a class="pill" href="{% url 'home' %}#contact" data-anchor="contact">Let’s talk</a>
-
-        {# Staff-only quick link to Django admin #}
+        <a class="pill" href="{% url 'blog:index' %}">Blog</a>
         {% if request.user.is_staff %}
             <a class="pill ghost admin-only" href="{% url 'admin:index' %}">Admin</a>
         {% endif %}
@@ -83,6 +81,7 @@
             <a href="{% url 'home' %}#work">Work</a>
             <a href="{% url 'home' %}#game">Bambi Game</a>
             <a href="{% url 'home' %}#contact">Let’s talk</a>
+            <a href="{% url 'blog:index' %}">Blog</a>
             <a href="{% url 'sitemap_html' %}">Site map</a>
         </nav>
 

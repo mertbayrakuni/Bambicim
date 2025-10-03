@@ -8,6 +8,7 @@ from django.urls import path, include, reverse
 from django.views.generic import TemplateView
 
 from accounts import views as accounts_views
+from blog.feeds import LatestPostsFeed
 from copilot import views as copilot  # ← SSE + uploads
 from core import views as core  # ← single, unambiguous alias
 from portfolio.sitemaps import ProjectSitemap
@@ -75,6 +76,10 @@ urlpatterns = [
          TemplateView.as_view(template_name="robots.txt", content_type="text/plain"),
          name="robots"),
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="sitemap"),
+
+    #blog
+    path("blog/", include("blog.urls", namespace="blog")),
+    path("blog/rss/", LatestPostsFeed(), name="blog_rss"),
 ]
 
 if settings.DEBUG:
