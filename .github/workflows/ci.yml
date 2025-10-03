@@ -15,12 +15,11 @@ jobs:
     env:
       DJANGO_SETTINGS_MODULE: Bambicim.settings
       DJANGO_DEBUG: "False"
-      DJANGO_SECRET_KEY: "dummy-ci-secret-key"
+      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}  # <-- add this in GitHub > Settings > Secrets > Actions
       ALLOWED_HOSTS: "localhost,127.0.0.1,testserver"
       CONTACT_RECIPIENT: "ci@example.com"
-      # Optional GitHub API envs used by your homepage fetcher:
       GITHUB_USERNAME: "mertbayrakuni"
-      GITHUB_TOKEN: ""
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}            # GitHub provides this automatically
 
     steps:
       - name: Checkout
