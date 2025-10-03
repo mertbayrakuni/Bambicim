@@ -978,3 +978,22 @@ a {
         bottom: 12px;
     }
 }
+
+.blog-index .empty {
+    padding: 2rem 0;
+    text-align: center;
+    opacity: .8;
+}
+
+.posts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+}
+
+.post-card img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+}

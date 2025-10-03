@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}Blog — Bambicim{% endblock %}
 {% block content %}
-    <section class="wrap blog-index">
+    <section class="b-container blog-index">
         <h1 class="h-xl">Blog</h1>
         {% if category %}<p>Category: {{ category.name }}</p>{% endif %}
         {% if tag %}<p>Tag: {{ tag.name }}</p>{% endif %}
@@ -23,7 +23,7 @@
                     </div>
                 </article>
             {% empty %}
-                <p>No posts yet.</p>
+                <p class="empty muted">No posts yet.</p>
             {% endfor %}
         </div>
 
