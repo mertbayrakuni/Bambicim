@@ -1,4 +1,6 @@
 # Bambicim/urls.py
+import os
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -82,5 +84,5 @@ urlpatterns = [
     path("blog/rss/", LatestPostsFeed(), name="blog_rss"),
 ]
 
-if settings.DEBUG:
+if settings.DEBUG or os.environ.get("DJANGO_SERVE_MEDIA") == "1":
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

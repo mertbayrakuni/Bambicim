@@ -164,11 +164,13 @@ USE_TZ = True
 # ----------------------------------------------------------------------------- #
 # Static & media
 # ----------------------------------------------------------------------------- #
+# Static & media
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Serve uploads from a disk in dev; allow overriding the path in prod (Render Disk/S3 etc.)
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT", BASE_DIR / "media")
 
 BAMBI_COPILOT_ENABLED = True
 

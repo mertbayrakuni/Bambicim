@@ -4,9 +4,6 @@
 {% block content %}
     <section class="b-container blog-index">
         <h1 class="h-xl">Blog</h1>
-        {% if category %}<p>Category: {{ category.name }}</p>{% endif %}
-        {% if tag %}<p>Tag: {{ tag.name }}</p>{% endif %}
-
         <div class="grid posts-grid">
             {% for p in posts %}
                 <article class="card post-card">
@@ -26,17 +23,5 @@
                 <p class="empty muted">No posts yet.</p>
             {% endfor %}
         </div>
-
-        {% if is_paginated %}
-            <nav class="pager">
-                {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}">Prev</a>
-                {% endif %}
-                <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-                {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}">Next</a>
-                {% endif %}
-            </nav>
-        {% endif %}
     </section>
 {% endblock %}
