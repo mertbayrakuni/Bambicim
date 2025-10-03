@@ -1,10 +1,11 @@
 # utils/github.py
-import os, requests
+import requests
 from django.core.cache import cache
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 GITHUB_API = "https://api.github.com"
+
 
 def _normalize(repo):
     pushed = parse_datetime(repo.get("pushed_at"))
@@ -20,6 +21,7 @@ def _normalize(repo):
         "pushed_dt": pushed,
         "og_image": f"https://opengraph.githubassets.com/1/{repo['full_name']}",
     }
+
 
 def fetch_recent_public_repos(user: str, token: str | None, per_page: int = 3):
     headers = {
@@ -38,6 +40,7 @@ def fetch_recent_public_repos(user: str, token: str | None, per_page: int = 3):
     if not isinstance(data, list):
         return []
     return [_normalize(repo) for repo in data[:per_page]]
+
 
 def get_recent_public_repos_cached(user: str, token: str | None):
     key = f"gh:recent:{user}"

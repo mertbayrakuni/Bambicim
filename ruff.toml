@@ -1,0 +1,27 @@
+# ruff.toml
+target-version = "py311"
+line-length = 120
+
+[format]
+# enable black-like formatter
+docstring-code-format = true
+
+[lint]
+select = ["E", "F", "I"]           # errors, flakes, import order
+ignore = []                      # keep default strictness
+
+[lint.isort]
+known-first-party = ["Bambicim", "core", "blog", "copilot", "portfolio", "accounts", "utils"]
+
+# Some files are code-generate-y / long HTML strings etc.
+[lint.per-file-ignores]
+"Bambicim/urls.py" = ["I001", "E501"]
+"Bambicim/middleware.py" = ["E501"]
+"blog/admin.py" = ["E501"]
+"portfolio/models.py" = ["E501"]
+"core/admin.py" = ["E501"]
+"core/models.py" = ["E402"]
+"core/art.py" = ["E501", "E701", "E703"]
+"copilot/**/*.py" = ["E501"]
+"**/tests.py" = ["F401"]         # those empty placeholder tests
+"core/tests/*.py" = ["I001"]     # allow unsorted imports in quick smoke tests
