@@ -7,13 +7,23 @@
     <section class="b-container blog-index">
         <h1 class="h-xl">Blog</h1>
 
+        {# Normalize the queryset name so we don't 500 if it's post_list/object_list/page_obj #}
+        {% with
+        _items=posts|default:post_list|default:object_list
+        %}
+        {% if not _items and page_obj %}
+            {% with _items=page_obj.object_list %}
+            {% endwith %}
+        {% endif %}
+
         <div class="grid posts-grid">
-            {% for p in posts %}
+            {% for p in _items %}
                 <article class="card post-card">
                     <a href="{{ p.get_absolute_url }}" class="post-cover">
                         {% if p.cover_image %}
+                            {# Use relative /media/... here to avoid needing request in the context #}
                             <img
-                                    src="{{ request.build_absolute_uri(p.cover_image.url)|replace:'http:','https:' }}"
+                                    src="{{ p.cover_image.url }}"
                                     alt="{{ p.title }}"
                                     loading="lazy">
                         {% endif %}
@@ -30,5 +40,6 @@
                 <p class="empty muted">No posts yet.</p>
             {% endfor %}
         </div>
+        {% endwith %}
     </section>
 {% endblock %}
