@@ -1,13 +1,13 @@
 # Bambicim/urls.py
-import os
 
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.sitemaps import Sitemap
 from django.contrib.sitemaps.views import sitemap
-from django.urls import path, include, reverse
+from django.urls import path, include, reverse, re_path
 from django.views.generic import TemplateView
+from django.views.static import serve
 
 from accounts import views as accounts_views
 from blog.feeds import LatestPostsFeed
@@ -60,10 +60,10 @@ urlpatterns = [
     path("art/scene/<str:scene_key>.webp", core.scene_art_image, name="scene_art_image"),
     path("art/ensure-all", core.scene_art_ensure_all, name="scene_art_ensure_all"),
 
-    # chatbot (HTTP) — used by initialText & fallback paths in chatbot.js
+    # chatbot (HTTP)
     path("api/chat", core.api_chat, name="api_chat"),
 
-    # copilot (SSE) — used by chatbot.js streaming
+    # copilot (SSE)
     path("api/copilot/upload", copilot.upload, name="copilot_upload"),
     path("api/copilot/chat", copilot.chat, name="copilot_chat"),
 
@@ -74,9 +74,11 @@ urlpatterns = [
     path("sitemap/", TemplateView.as_view(template_name="static/sitemap.html"), name="sitemap_html"),
 
     # robots + XML sitemap
-    path("robots.txt",
-         TemplateView.as_view(template_name="robots.txt", content_type="text/plain"),
-         name="robots"),
+    path(
+        "robots.txt",
+        TemplateView.as_view(template_name="robots.txt", content_type="text/plain"),
+        name="robots",
+    ),
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="sitemap"),
 
     # blog
@@ -84,5 +86,10 @@ urlpatterns = [
     path("blog/rss/", LatestPostsFeed(), name="blog_rss"),
 ]
 
-if settings.DEBUG or os.getenv("DJANGO_SERVE_MEDIA") == "1":
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# ---- Media (serve on Render/production too) ---------------------------------
+# WhiteNoise serves STATIC only. We explicitly serve MEDIA here.
+# Safe for low traffic; for heavy media use, move to CDN/object storage later.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += [
+    re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT}),
+]

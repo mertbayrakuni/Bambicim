@@ -9,7 +9,8 @@
                 <article class="card post-card">
                     <a href="{{ p.get_absolute_url }}" class="post-cover">
                         {% if p.cover_image %}
-                            <img src="{{ p.cover_image.url }}" alt="{{ p.title }}">
+                            <img src="{{ request.build_absolute_uri(p.cover_image.url)|replace:'http:','https:' }}"
+                                 alt="{{ p.title }}">
                         {% endif %}
                     </a>
                     <div class="post-body">

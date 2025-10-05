@@ -7,7 +7,8 @@
     <meta property="og:title" content="{{ post.title }}"/>
     <meta property="og:description" content="{{ post.seo_description|default:post.excerpt|default:post.title }}"/>
     {% if post.cover_image %}
-        <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ post.cover_image.url }}"/>
+        <meta property="og:image"
+              content="{{ request.build_absolute_uri(post.cover_image.url)|replace:'http:','https:' }}">
     {% endif %}
 {% endblock %}
 {% block content %}
@@ -26,7 +27,10 @@
                 </p>
             {% endif %}
             {% if post.cover_image %}
-                <figure class="post-cover"><img src="{{ post.cover_image.url }}" alt="{{ post.title }}"></figure>
+                <figure class="post-cover">
+                    <img src="{{ request.build_absolute_uri(post.cover_image.url)|replace:'http:','https:' }}"
+                         alt="{{ post.title }}">
+                </figure>
             {% endif %}
         </header>
 

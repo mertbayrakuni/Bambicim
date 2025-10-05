@@ -169,8 +169,9 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 os.makedirs(STATIC_ROOT, exist_ok=True)
 
+
 MEDIA_URL = "/media/"
-MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT") or (BASE_DIR / "media"))
+MEDIA_ROOT = BASE_DIR / "media"
 
 BAMBI_COPILOT_ENABLED = True
 
