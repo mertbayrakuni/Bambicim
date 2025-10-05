@@ -7,8 +7,8 @@
     <section class="b-container blog-index">
         <h1 class="h-xl">Bambicim Blog</h1>
 
-        {# CRITICAL FIX: Changed _items to items to satisfy Django template syntax rules #}
-        {% with items=posts|default:post_list|default:object_list %}
+        {# FIX: Removed 'post_list' to resolve VariableDoesNotExist. It now uses 'posts' (from context_object_name) or the Django default 'object_list'. #}
+        {% with items=posts|default:object_list %}
             {% if not items and page_obj %}
                 {# Fallback for pagination context #}
                 {% with items=page_obj.object_list %}{% endwith %}
