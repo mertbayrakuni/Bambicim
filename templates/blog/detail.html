@@ -4,59 +4,75 @@
 {% block title %}{{ post.seo_title|default:post.title }}{% endblock %}
 
 {% block meta %}
-  <meta name="description" content="{{ post.seo_description|default:post.excerpt|default:post.title }}">
-  <link rel="canonical" href="{{ post.canonical_url|default:request.build_absolute_uri }}">
-  <meta property="og:title" content="{{ post.title }}">
-  <meta property="og:description" content="{{ post.seo_description|default:post.excerpt|default:post.title }}">
-  {% if post.cover_image %}
-    <meta property="og:image" content="{{ post.cover_image.url }}">
-  {% endif %}
+    <meta name="description" content="{{ post.seo_description|default:post.excerpt|default:post.title }}">
+    {# Use custom filter for full canonical URL, falling back to request #}
+    <link rel="canonical" href="{{ post.canonical_url|default:request.build_absolute_uri }}">
+    <meta property="og:title" content="{{ post.title }}">
+    <meta property="og:description" content="{{ post.seo_description|default:post.excerpt|default:post.title }}">
+
+    {% if post.cover_image %}
+        {# FIX: Use filter syntax for absolute URL, ensuring HTTPS #}
+        <meta property="og:image" content="{{ post.cover_image.url|build_absolute_uri|replace:'http:','https:' }}">
+    {% endif %}
 {% endblock %}
 
 {% block content %}
-  <article class="b-container blog-detail">
-    <header class="post-header">
-      <h1 class="h-xl">{{ post.title }}</h1>
-      <p class="muted">
-        {{ post.publish_at|date:"M d, Y" }} · {{ post.reading_time }} min read
-        {% if post.category %} · <a href="{% url 'blog:category' post.category.slug %}">{{ post.category.name }}</a>{% endif %}
-      </p>
+    <article class="b-container blog-detail">
+        <header class="post-header">
+            {# Optional "Featured" badge with a pink touch #}
+            {% if post.featured %}
+                <span class="badge badge-pink">Featured Post</span>
+            {% endif %}
 
-      {% if post.tags.all %}
-        <p class="tags">
-          {% for t in post.tags.all %}
-            <a class="tag" href="{% url 'blog:tag' t.slug %}">#{{ t.name }}</a>
-          {% endfor %}
-        </p>
-      {% endif %}
-
-      {% if post.cover_image %}
-        <figure class="post-cover">
-          <img src="{{ post.cover_image.url }}" alt="{{ post.title }}" loading="lazy">
-        </figure>
-      {% endif %}
-    </header>
-
-    <div class="post-content prose">
-      {{ post.content|markdownify|safe }}
-    </div>
-
-    {% if related_posts %}
-      <section class="related wrap">
-        <h3>Related</h3>
-        <div class="grid posts-grid">
-          {% for rp in related_posts %}
-            <article class="card post-card">
-              <a href="{{ rp.get_absolute_url }}" class="post-cover">
-                {% if rp.cover_image %}
-                  <img src="{{ rp.cover_image.url }}" alt="{{ rp.title }}" loading="lazy">
+            <h1 class="h-xl">{{ post.title }}</h1>
+            <p class="muted post-meta">
+                {{ post.publish_at|date:"M d, Y" }} · {{ post.reading_time }} min read
+                {% if post.category %} ·
+                    <a href="{% url 'blog:category' post.category.slug %}">{{ post.category.name }}</a>
                 {% endif %}
-              </a>
-              <h4><a href="{{ rp.get_absolute_url }}">{{ rp.title }}</a></h4>
-            </article>
-          {% endfor %}
+            </p>
+
+            {% if post.tags.all %}
+                <p class="tags">
+                    {% for t in post.tags.all %}
+                        <a class="tag tag-pink-border" href="{% url 'blog:tag' t.slug %}">#{{ t.name }}</a>
+                    {% endfor %}
+                </p>
+            {% endif %}
+
+            {% if post.cover_image %}
+                <figure class="post-cover">
+                    {# FIX: Use filter syntax for image source #}
+                    <img src="{{ post.cover_image.url|build_absolute_uri }}"
+                         alt="{{ post.title }}"
+                         loading="lazy">
+                </figure>
+            {% endif %}
+        </header>
+
+        <div class="post-content prose">
+            {{ post.content|markdownify|safe }}
         </div>
-      </section>
-    {% endif %}
-  </article>
+
+        {% if related_posts %}
+            <section class="related wrap">
+                <h3>More Like This</h3>
+                <div class="grid posts-grid related-grid">
+                    {% for rp in related_posts %}
+                        <article class="card post-card">
+                            <a href="{{ rp.get_absolute_url }}" class="post-cover">
+                                {% if rp.cover_image %}
+                                    {# FIX: Use filter syntax for related post image #}
+                                    <img src="{{ rp.cover_image.url|build_absolute_uri }}"
+                                         alt="{{ rp.title }}"
+                                         loading="lazy">
+                                {% endif %}
+                            </a>
+                            <h4><a href="{{ rp.get_absolute_url }}">{{ rp.title }}</a></h4>
+                        </article>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+    </article>
 {% endblock %}

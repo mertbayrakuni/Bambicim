@@ -162,16 +162,24 @@ USE_I18N = True
 USE_TZ = True
 
 # ----------------------------------------------------------------------------- #
-# Static & media
+# Static & media  ✨ **FIXED RENDER MEDIA ROOT LOGIC HERE** ✨
 # ----------------------------------------------------------------------------- #
-# Static & media
+
+# Static Files (handled by WhiteNoise in production)
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 os.makedirs(STATIC_ROOT, exist_ok=True)
 
-
+# Media Files (user-uploaded files)
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+
+# Set MEDIA_ROOT conditionally for persistent storage on Render
+if not DEBUG:
+    # CRITICAL: This MUST match the Mount path on your Render Disk exactly.
+    MEDIA_ROOT = "/opt/render/project/src/media"
+else:
+    # Local development setting
+    MEDIA_ROOT = BASE_DIR / "media"
 
 BAMBI_COPILOT_ENABLED = True
 
@@ -217,23 +225,6 @@ else:
         "formatters": COMMON_LOG_FORMATTERS,
         "handlers": {
             "console": {"class": "logging.StreamHandler", "formatter": "simple"},
-            # Optional file logs:
-            # "file_app": {
-            #     "class": "logging.handlers.TimedRotatingFileHandler",
-            #     "filename": LOG_DIR / "app.log",
-            #     "when": "midnight",
-            #     "backupCount": 14,
-            #     "formatter": "verbose",
-            #     "encoding": "utf-8",
-            # },
-            # "file_django": {
-            #     "class": "logging.handlers.TimedRotatingFileHandler",
-            #     "filename": LOG_DIR / "django.log",
-            #     "when": "midnight",
-            #     "backupCount": 14,
-            #     "formatter": "verbose",
-            #     "encoding": "utf-8",
-            # },
         },
         "loggers": {
             "django": {"handlers": ["console"], "level": "INFO", "propagate": True},

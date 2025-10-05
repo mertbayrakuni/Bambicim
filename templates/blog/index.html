@@ -5,37 +5,54 @@
 
 {% block content %}
     <section class="b-container blog-index">
-        <h1 class="h-xl">Blog</h1>
+        <h1 class="h-xl">Bambicim Blog</h1>
 
         {% with _items=posts|default:post_list|default:object_list %}
             {% if not _items and page_obj %}
-                {% with _items=page_obj.object_list %}
-                {% endwith %}
+                {# Fallback for pagination context #}
+                {% with _items=page_obj.object_list %}{% endwith %}
             {% endif %}
 
             <div class="grid posts-grid">
                 {% for p in _items %}
-                    <article class="card post-card">
+                    {# Apply a "pink" style class if the post is featured #}
+                    <article class="card post-card {% if p.featured %}is-featured-pink{% endif %}">
                         <a href="{{ p.get_absolute_url }}" class="post-cover">
                             {% if p.cover_image %}
                                 <img
                                         src="{{ p.cover_image.url }}"
                                         alt="{{ p.title }}"
-                                        loading="lazy">
+                                        loading="lazy"
+                                >
                             {% endif %}
                         </a>
 
                         <div class="post-body">
+                            {% if p.category %}
+                                <p class="muted category-link">
+                                    <a href="{% url 'blog:category' p.category.slug %}">{{ p.category.name }}</a>
+                                </p>
+                            {% endif %}
+
                             <h2 class="h-lg"><a href="{{ p.get_absolute_url }}">{{ p.title }}</a></h2>
-                            <p class="muted">{{ p.publish_at|date:"M d, Y" }} · {{ p.reading_time }} min read</p>
-                            <p>{{ p.excerpt|default:p.seo_description|default:p.title }}</p>
-                            <a class="btn" href="{{ p.get_absolute_url }}">Read</a>
+
+                            <p class="muted post-meta">
+                                {{ p.publish_at|date:"M d, Y" }} · {{ p.reading_time }} min read
+                            </p>
+
+                            <p class="excerpt">{{ p.excerpt|default:p.seo_description|default:p.title }}</p>
+
+                            <a class="btn {% if p.featured %}btn-pink-outline{% endif %}"
+                               href="{{ p.get_absolute_url }}">Read Article</a>
                         </div>
                     </article>
                 {% empty %}
-                    <p class="empty muted">No posts yet.</p>
+                    <p class="empty muted">No posts found, darling. Check back soon!</p>
                 {% endfor %}
             </div>
+
+            {# You should include pagination links here if you're using them #}
+
         {% endwith %}
     </section>
 {% endblock %}
