@@ -1,18 +1,24 @@
 {% extends "base.html" %}
 {% load static %}
+
 {% block title %}Blog — Bambicim{% endblock %}
+
 {% block content %}
     <section class="b-container blog-index">
         <h1 class="h-xl">Blog</h1>
+
         <div class="grid posts-grid">
             {% for p in posts %}
                 <article class="card post-card">
                     <a href="{{ p.get_absolute_url }}" class="post-cover">
                         {% if p.cover_image %}
-                            <img src="{{ request.build_absolute_uri(p.cover_image.url)|replace:'http:','https:' }}"
-                                 alt="{{ p.title }}">
+                            <img
+                                    src="{{ request.build_absolute_uri(p.cover_image.url)|replace:'http:','https:' }}"
+                                    alt="{{ p.title }}"
+                                    loading="lazy">
                         {% endif %}
                     </a>
+
                     <div class="post-body">
                         <h2 class="h-lg"><a href="{{ p.get_absolute_url }}">{{ p.title }}</a></h2>
                         <p class="muted">{{ p.publish_at|date:"M d, Y" }} · {{ p.reading_time }} min read</p>
