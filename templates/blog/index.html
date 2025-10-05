@@ -7,14 +7,15 @@
     <section class="b-container blog-index">
         <h1 class="h-xl">Bambicim Blog</h1>
 
-        {% with _items=posts|default:post_list|default:object_list %}
-            {% if not _items and page_obj %}
+        {# CRITICAL FIX: Changed _items to items to satisfy Django template syntax rules #}
+        {% with items=posts|default:post_list|default:object_list %}
+            {% if not items and page_obj %}
                 {# Fallback for pagination context #}
-                {% with _items=page_obj.object_list %}{% endwith %}
+                {% with items=page_obj.object_list %}{% endwith %}
             {% endif %}
 
             <div class="grid posts-grid">
-                {% for p in _items %}
+                {% for p in items %}
                     {# Apply a "pink" style class if the post is featured #}
                     <article class="card post-card {% if p.featured %}is-featured-pink{% endif %}">
                         <a href="{{ p.get_absolute_url }}" class="post-cover">
