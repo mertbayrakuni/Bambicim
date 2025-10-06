@@ -1,0 +1,14 @@
+{% extends "admin/login.html" %}
+{% load static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'admin/bambicim.css' %}">
+{% endblock %}
+
+{% block branding %}
+    <div class="b-admin-login-brand">
+        <img class="b-logo" src="{% static 'images/svg/butterfly.svg' %}" width="32" height="32" alt="">
+        <span class="b-title">Bambicim Admin</span>
+    </div>
+{% endblock %}

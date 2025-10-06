@@ -1,0 +1,24 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}Bambicim Admin{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <link rel="icon" href="{% static 'images/svg/flower-pink.svg' %}" type="image/svg+xml">
+    <link rel="alternate icon" href="{% static 'images/png/butterfly-icon-32.png' %}" sizes="32x32" type="image/png">
+    <link rel="alternate icon" href="{% static 'images/png/butterfly-icon-16.png' %}" sizes="16x16" type="image/png">
+    <meta name="theme-color" content="#16131a">
+    <link rel="stylesheet" href="{% static 'admin/bambicim.css' %}">
+{% endblock %}
+
+{% block branding %}
+    <div class="b-admin-brand">
+        <img class="b-logo" src="{% static 'favicons/../../core/static/images/svg/flower-pink.svg' %}" alt="" width="26"
+             height="26">
+        <span class="b-title">Bambicim Admin</span>
+    </div>
+{% endblock %}
+
+{# optional: hide the default “View site / Documentation” links #}
+{% block nav-global %}{% endblock %}

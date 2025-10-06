@@ -1,0 +1,211 @@
+/* ─────────────────────────────────────────────────────────────
+   Bambicim Admin Theme — dark, pink, accessible
+   Drop-in CSS loaded after Django's admin CSS.
+   ──────────────────────────────────────────────────────────── */
+
+/* 1) Tokens */
+:root {
+    /* brand */
+    --b-pink-400: #ff5ecf;
+    --b-pink-500: #ff3fb6;
+    --b-pink-600: #e22ea4;
+    --b-pink-700: #b51f86;
+
+    /* surfaces */
+    --b-surface-950: #0f0c11;
+    --b-surface-900: #16131a;
+    --b-surface-850: #1b1720;
+    --b-surface-800: #221c28;
+
+    /* text */
+    --b-text: #f6f2f8;
+    --b-muted: #c8bfd2;
+
+    /* focus + shadows */
+    --b-focus-ring: 0 0 0 3px rgba(255, 63, 182, .45);
+
+    /* radius + easing + timing */
+    --b-radius: 14px;
+    --b-ease: cubic-bezier(.2, 0, 0, 1);
+    --b-fast: 150ms;
+    --b-med: 220ms;
+}
+
+/* 2) Map to Django admin CSS custom properties (Django 4.2+) */
+:root {
+    --primary: var(--b-pink-600);
+    --secondary: var(--b-pink-700);
+    --accent: var(--b-pink-400);
+
+    --body-bg: var(--b-surface-950);
+    --body-fg: var(--b-text);
+
+    --header-bg: var(--b-surface-900);
+    --header-color: var(--b-text);
+    --breadcrumbs-bg: var(--b-surface-900);
+
+    --link-fg: var(--b-pink-500);
+    --link-hover-color: var(--b-pink-600);
+
+    --darkened-bg: var(--b-surface-850);
+    --selected-row: rgba(255, 63, 182, .12);
+    --hairline-color: #2a2231;
+    --border-color: #2a2231;
+}
+
+/* 3) Global typography + layout polish (system stack = no extra font download) */
+html, body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    text-rendering: optimizeLegibility;
+}
+
+#container, .content, .module, .inline-group,
+.fieldBox, .module caption, .submit-row, .selector, .selector-available, .selector-chosen {
+    border-radius: var(--b-radius);
+}
+
+/* 4) Header branding */
+.b-admin-brand, .b-admin-login-brand {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+}
+
+.b-admin-brand .b-title, .b-admin-login-brand .b-title {
+    font-weight: 600;
+    letter-spacing: .2px;
+}
+
+.b-logo {
+    display: inline-block;
+}
+
+/* 5) Panels & modules */
+#header {
+    background: var(--header-bg);
+    color: var(--header-color);
+}
+
+.module, .inline-group, .aligned .form-row, .submit-row {
+    background: var(--b-surface-900);
+    border: 1px solid var(--hairline-color);
+}
+
+.aligned .form-row:hover {
+    background: var(--b-surface-850);
+}
+
+/* 6) Buttons */
+.button, a.button, input[type=submit].default, .submit-row input.default {
+    border-radius: var(--b-radius);
+    background: var(--primary);
+    border: none;
+    color: #fff;
+    transition: transform var(--b-fast) var(--b-ease),
+    background var(--b-fast) var(--b-ease), box-shadow var(--b-fast) var(--b-ease);
+}
+
+.button:hover, a.button:hover, input[type=submit].default:hover, .submit-row input.default:hover {
+    background: var(--b-pink-700);
+    transform: translateY(-1px);
+}
+
+.button:active, .submit-row input.default:active {
+    transform: translateY(0);
+}
+
+/* Secondary / delete buttons keep semantics */
+.deletelink, .deletelink:link, .deletelink:visited {
+    border-radius: var(--b-radius);
+}
+
+/* 7) Links & selections */
+a, a:link, a:visited {
+    color: var(--link-fg);
+}
+
+a:hover {
+    color: var(--link-hover-color);
+}
+
+tr.selected, .row1.selected, .row2.selected {
+    background: var(--selected-row) !important;
+}
+
+/* 8) Forms */
+input, select, textarea {
+    border-radius: var(--b-radius);
+    background: var(--b-surface-850);
+    border: 1px solid var(--hairline-color);
+    color: var(--b-text);
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    box-shadow: var(--b-focus-ring);
+}
+
+/* 9) Messages (success / warning / error) */
+ul.messagelist li {
+    border-radius: var(--b-radius);
+}
+
+ul.messagelist li.success {
+    background: #11351e;
+    border-color: #1f5b33;
+}
+
+ul.messagelist li.warning {
+    background: #3a2b10;
+    border-color: #7d5b1b;
+}
+
+ul.messagelist li.error {
+    background: #3a1521;
+    border-color: #7d2442;
+}
+
+/* 10) Breadcrumbs */
+.breadcrumbs {
+    background: var(--breadcrumbs-bg);
+    border-radius: var(--b-radius);
+}
+
+/* 11) Login page */
+#content-main .module.login, .login .submit-row {
+    background: var(--b-surface-900);
+    border: 1px solid var(--hairline-color);
+    border-radius: var(--b-radius);
+}
+
+.login #container {
+    max-width: 560px;
+}
+
+.login .form-row label {
+    color: var(--b-muted);
+}
+
+/* 12) Reduce motion support */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+#changelist-form tbody tr {
+    line-height: 1.35;
+}
+
+#changelist-form tbody td, #changelist-form thead th {
+    padding: .6rem .7rem;
+}
+
+#changelist #toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
