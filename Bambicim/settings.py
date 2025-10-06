@@ -169,7 +169,10 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 # If you keep a local /static directory for dev:
-STATICFILES_DIRS = [BASE_DIR / "static"]
+STATICFILES_DIRS = [p for p in [
+    BASE_DIR / "static",  # optional (project-level); included only if it exists
+    BASE_DIR / "core" / "static",  # your real folder shown in the screenshot
+] if p.exists()]
 
 # Media  ✅ IMPORTANT
 MEDIA_URL = "/media/"  # leading & trailing slashes are crucial
