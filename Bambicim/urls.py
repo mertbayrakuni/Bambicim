@@ -1,12 +1,12 @@
 # Bambicim/urls.py
 
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.sitemaps import Sitemap
 from django.contrib.sitemaps.views import sitemap
-from django.urls import path, include, reverse
+from django.urls import path, include, reverse, re_path
 from django.views.generic import TemplateView
+from django.views.static import serve as media_serve
 
 from accounts import views as accounts_views
 from blog.feeds import LatestPostsFeed
@@ -83,4 +83,9 @@ urlpatterns = [
     path("blog/rss/", LatestPostsFeed(), name="blog_rss"),
 ]
 
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += [
+    re_path(r"^media/(?P<path>.*)$", media_serve, {
+        "document_root": settings.MEDIA_ROOT,
+        "show_indexes": True,  # handy while debugging
+    }),
+]

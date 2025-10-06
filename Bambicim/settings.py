@@ -165,21 +165,25 @@ USE_TZ = True
 # Static & media  ✨ **FIXED RENDER MEDIA ROOT LOGIC HERE** ✨
 # ----------------------------------------------------------------------------- #
 
-# Static Files (handled by WhiteNoise in production)
+# Static
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-os.makedirs(STATIC_ROOT, exist_ok=True)
+# If you keep a local /static directory for dev:
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# Media Files (user-uploaded files)
-MEDIA_URL = "/media/"
+# Media  ✅ IMPORTANT
+MEDIA_URL = "/media/"  # leading & trailing slashes are crucial
+MEDIA_ROOT = BASE_DIR / "media"  # or a persistent disk path in production
 
-# Set MEDIA_ROOT conditionally for persistent storage on Render
-if not DEBUG:
-    # CRITICAL: This MUST match the Mount path on your Render Disk exactly.
-    MEDIA_ROOT = "/opt/render/project/src/media"
-else:
-    # Local development setting
-    MEDIA_ROOT = BASE_DIR / "media"
+# Django 4.2+ storages (recommended)
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",  # media
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 BAMBI_COPILOT_ENABLED = True
 
