@@ -1,30 +1,45 @@
-/* Light-touch theming; no layout changes */
-:root {
-  --primary: #ff3ea5;         /* Bambicim pink */
-  --accent: #ffd7f1;
-  --body-bg: #0f0c12;
-  --header-bg: #0f0c12;
-  --hairline-color: #2a2433;
-  --link-fg: var(--primary);
-  --selected-bg: #1a1421;
-  --button-bg: var(--primary);
-  --button-fg: #1a0d14;
-  --link-hover-color: #ffa4da;
+/* admin theme: pinks, no layout changes */
+:root,
+html[data-theme="light"],
+html[data-theme="dark"] {
+    --primary: #ff3ea5;
+    --accent: #ffd7f1;
+    --link-fg: var(--primary);
+    --header-bg: #0f0c12;
+    --body-bg: #0f0c12;
+    --selected-bg: #1a1421;
+    --button-bg: var(--primary);
+    --button-fg: #1a0d14;
+    --hairline-color: #2a2433;
 }
 
-#header, #user-tools a { color: #e9d5ee; }
-#header { border-bottom: 1px solid var(--hairline-color); }
+#header, #user-tools a {
+    color: #e9d5ee;
+}
+
+#header {
+    border-bottom: 1px solid var(--hairline-color);
+}
 
 .b-admin-brand, .b-admin-login-brand {
-  display: flex; align-items: center; gap: .5rem;
-}
-.b-admin-brand .b-title,
-.b-admin-login-brand .b-title {
-  font-weight: 600; letter-spacing: .2px;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
 }
 
-/* subtle cards */
-.module { background: #120e16; border-color: var(--hairline-color); }
-.dashboard .module caption { color: #cdb8d6; }
+.b-admin-brand .b-title, .b-admin-login-brand .b-title {
+    font-weight: 600;
+    letter-spacing: .2px;
+}
 
-/* keep Django dashboard’s 600px content + right rail as-is */
+.module {
+    background: #120e16;
+    border-color: var(--hairline-color);
+}
+
+.dashboard .module caption {
+    color: #cdb8d6;
+}
+
+/* optional: if “width looks broken”, cap content width a bit */
+/* #content { max-width: 1200px; } */
