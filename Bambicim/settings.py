@@ -37,7 +37,7 @@ def env(key: str, default=None, cast=str):
 # Core
 # ------------------------------------------------------------------------------
 # Tip: set DJANGO_SECRET_KEY in prod to a long, random value (>= 50 chars).
-SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-secret-unsafe-DO_NOT_USE_IN_PRODUCTION")
+SECRET_KEY = env("DJANGO_SECRET_KEY") or "dev-secret-unsafe"
 
 # In local dev we default to DEBUG=True; in CI/prod set DJANGO_DEBUG=0
 # (On GitHub Actions we default DEBUG to False so `check --deploy` passes.)
