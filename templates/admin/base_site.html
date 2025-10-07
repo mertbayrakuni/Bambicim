@@ -1,15 +1,11 @@
 {% extends "admin/base.html" %}
 {% load static %}
 
-{% block title %}Bambicim Admin{% endblock %}
-
-{# load custom CSS in the correct block so it overrides admin #}
 {% block extrastyle %}
     {{ block.super }}
     <link rel="stylesheet" href="{% static 'admin/bambicim.css' %}">
 {% endblock %}
 
-{# keep favicons etc. in extrahead #}
 {% block extrahead %}
     {{ block.super }}
     <link rel="icon" href="{% static 'images/svg/flower-pink.svg' %}" type="image/svg+xml">
@@ -20,7 +16,7 @@
 
 {% block branding %}
     <div class="b-admin-brand">
-        <img class="b-logo" src="{% static 'images/svg/flower-pink.svg' %}" alt="" width="26" height="26">
+        <img class="b-logo" src="{% static 'images/svg/flower-pink.svg' %}" width="26" height="26" alt="">
         <span class="b-title">Bambicim Admin</span>
     </div>
 {% endblock %}

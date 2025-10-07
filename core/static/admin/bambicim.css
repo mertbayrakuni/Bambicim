@@ -1,43 +1,30 @@
-/* ── Bambicim Admin (minimal / safe) ───────────────────────── */
-/* Colors only; keep Django admin layout & spacing intact.     */
-
-/* Apply to both light root and Django's dark theme scope */
-:root,
-[data-theme="dark"] {
-    /* brand */
-    --b-pink-400: #ff5ecf;
-    --b-pink-500: #ff3fb6;
-    --b-pink-600: #e22ea4;
-    --b-pink-700: #b51f86;
-
-    /* surfaces / text tuned for dark */
-    --b-surface-950: #0f0c11;
-    --b-surface-900: #16131a;
-    --b-text: #f6f2f8;
-
-    /* map to Django admin CSS variables */
-    --primary: var(--b-pink-600);
-    --secondary: var(--b-pink-700);
-    --accent: var(--b-pink-400);
-
-    --body-bg: var(--b-surface-950);
-    --body-fg: var(--b-text);
-    --header-bg: var(--b-surface-900);
-    --header-color: var(--b-text);
-    --breadcrumbs-bg: var(--b-surface-900);
-
-    --link-fg: var(--b-pink-500);
-    --link-hover-color: var(--b-pink-600);
+/* Light-touch theming; no layout changes */
+:root {
+  --primary: #ff3ea5;         /* Bambicim pink */
+  --accent: #ffd7f1;
+  --body-bg: #0f0c12;
+  --header-bg: #0f0c12;
+  --hairline-color: #2a2433;
+  --link-fg: var(--primary);
+  --selected-bg: #1a1421;
+  --button-bg: var(--primary);
+  --button-fg: #1a0d14;
+  --link-hover-color: #ffa4da;
 }
 
-/* Tiny brand polish only */
+#header, #user-tools a { color: #e9d5ee; }
+#header { border-bottom: 1px solid var(--hairline-color); }
+
 .b-admin-brand, .b-admin-login-brand {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
+  display: flex; align-items: center; gap: .5rem;
+}
+.b-admin-brand .b-title,
+.b-admin-login-brand .b-title {
+  font-weight: 600; letter-spacing: .2px;
 }
 
-.b-admin-brand .b-title, .b-admin-login-brand .b-title {
-    font-weight: 600;
-    letter-spacing: .2px;
-}
+/* subtle cards */
+.module { background: #120e16; border-color: var(--hairline-color); }
+.dashboard .module caption { color: #cdb8d6; }
+
+/* keep Django dashboard’s 600px content + right rail as-is */
