@@ -41,5 +41,37 @@ html[data-theme="dark"] {
     color: #cdb8d6;
 }
 
-/* optional: if “width looks broken”, cap content width a bit */
-/* #content { max-width: 1200px; } */
+#content {
+    max-width: 1200px;
+}
+
+/* ---- layout fixes, scoped to admin only ---- */
+.bambi-admin #container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding-inline: 16px;
+}
+
+.bambi-admin.dashboard #content-main {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 12px;
+}
+
+.bambi-admin #changelist-form .results {
+    overflow-x: auto;
+}
+
+/* align labels/fields on wide screens */
+@media (min-width: 1024px) {
+    .bambi-admin .aligned .form-row {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        gap: 12px;
+        align-items: start;
+    }
+
+    .bambi-admin .aligned .form-row > label {
+        margin: 6px 0 0;
+    }
+}
