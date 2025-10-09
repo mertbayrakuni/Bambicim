@@ -81,6 +81,9 @@ urlpatterns = [
     # blog
     path("blog/", include("blog.urls", namespace="blog")),
     path("blog/rss/", LatestPostsFeed(), name="blog_rss"),
+
+    # search
+    path("", include("core.urls")),
 ]
 
 urlpatterns += [

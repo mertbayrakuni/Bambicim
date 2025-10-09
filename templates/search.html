@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load search_extras %}
+
+{% block title %}Search{% if q %}: {{ q }}{% endif %}{% endblock %}
+
+{% block content %}
+    <section class="b-container py-8">
+        <form action="{% url 'search' %}" method="get" class="search-form">
+            <input name="q" value="{{ q }}" placeholder="Search Bambicim…" autofocus class="input"/>
+            <button class="btn">Search</button>
+        </form>
+
+        {% if q %}
+            <h2 class="h-lg mt-8">Results for “{{ q }}”</h2>
+
+            <div class="mt-6">
+                <h3 class="h-md">Blog posts</h3>
+                {% if posts %}
+                    <ul class="search-list">
+                        {% for p in posts %}
+                            <li class="search-item">
+                                <a href="{{ p.get_absolute_url }}" class="title">{{ p.title|highlight:tokens }}</a>
+                                <p class="muted">
+                                    {{ p.excerpt|default:p.title|highlight:tokens }}
+                                </p>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="muted">No matching posts.</p>
+                {% endif %}
+            </div>
+
+            <div class="mt-10">
+                <h3 class="h-md">Projects</h3>
+                {% if projects %}
+                    <ul class="search-list">
+                        {% for pr in projects %}
+                            <li class="search-item">
+                                <a href="{{ pr.get_absolute_url }}" class="title">{{ pr.title|highlight:tokens }}</a>
+                                <p class="muted">{{ pr.summary|default:pr.title|highlight:tokens }}</p>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="muted">No matching projects.</p>
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

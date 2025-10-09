@@ -1,143 +1,180 @@
 {% load static %}
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>{% block title %}Bambicim — Innovative Software Studio{% endblock %}</title>
-    <meta name="description"
-          content="{% block meta_description %}Bambi’s playful portfolio, code, and tiny adventures.{% endblock %}">
-    <meta property="og:site_name" content="Bambicim">
-    <meta property="og:title" content="{% block og_title %}Bambicim{% endblock %}">
-    <meta property="og:description"
-          content="{% block og_description %}Bambi’s playful portfolio, code, and tiny adventures.{% endblock %}">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ request.build_absolute_uri|default:'' }}">
-    <meta property="og:image" content="{% static 'images/png/og-default.png' %}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{% block tw_title %}Bambicim{% endblock %}">
-    <meta name="twitter:description"
-          content="{% block tw_desc %}Bambi’s playful portfolio, code, and tiny adventures.{% endblock %}">
-    <meta name="twitter:image" content="{% static 'images/png/og-default.png' %}">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <title>{% block title %}Bambicim{% endblock %}</title>
+    {% block meta %}{% endblock %}
+    <link rel="icon" href="{% static 'icons/icon-192.png' %}">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <link rel="icon" href="{% static 'images/svg/butterfly.svg' %}">
-    {% block head %}{% endblock %}
+    {% block head_extra %}{% endblock %}
+
+    <!-- tiny styles so the search looks good even before your CSS picks it up -->
+    <style>
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            background: rgba(10, 5, 12, .8);
+            backdrop-filter: saturate(140%) blur(10px)
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 0
+        }
+
+        .brand {
+            font-weight: 900;
+            letter-spacing: .04em
+        }
+
+        .nav {
+            display: flex;
+            gap: .5rem;
+            flex-wrap: wrap
+        }
+
+        .nav a {
+            display: inline-block;
+            padding: .55rem .9rem;
+            border-radius: 1.25rem;
+            border: 1px solid rgba(255, 182, 225, .18)
+        }
+
+        .nav a.is-primary {
+            background: #ff5fb8;
+            color: #140713;
+            border-color: transparent
+        }
+
+        .spacer {
+            flex: 1
+        }
+
+        .nav-search {
+            display: flex;
+            align-items: center;
+            gap: .5rem
+        }
+
+        .nav-search input {
+            width: 18rem;
+            max-width: 45vw;
+            padding: .6rem .9rem;
+            border-radius: .9rem;
+            border: 1px solid rgba(255, 182, 225, .22);
+            background: rgba(255, 255, 255, .04);
+            color: #fff
+        }
+
+        .nav-search button {
+            padding: .55rem .85rem;
+            border-radius: .9rem;
+            border: 1px solid rgba(255, 182, 225, .22);
+            background: rgba(255, 255, 255, .06);
+            color: #fff
+        }
+
+        .auth {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-left: .5rem;
+            white-space: nowrap
+        }
+
+        @media (max-width: 880px) {
+            .nav-search input {
+                width: 11rem
+            }
+
+            .nav a.hide-sm {
+                display: none
+            }
+        }
+
+        mark {
+            background: #ffb6e1;
+            color: #1a0b18;
+            padding: 0 .15em;
+            border-radius: .25rem
+        }
+    </style>
 </head>
+<body>
 
-<body class="b-bg b-text" data-theme="pink">
-{# ---------- Top nav ---------- #}
-<header class="b-nav">
-    <a href="{% url 'home' %}" class="brand">BAMBİCİM</a>
+<header class="site-header">
+    <div class="b-container nav-inner">
+        <a class="brand" href="/">BAMBİCİM</a>
 
-    <nav class="main-nav">
-        <a class="pill" href="{% url 'home' %}#work" data-anchor="work">Work</a>
-        <a class="pill" href="{% url 'home' %}#game" data-anchor="game">Bambi Game</a>
-        <a class="pill" href="{% url 'home' %}#contact" data-anchor="contact">Let’s talk</a>
-        <a class="pill" href="{% url 'blog:index' %}">Blog</a>
-        {% if request.user.is_staff %}
-            <a class="pill ghost admin-only" href="{% url 'admin:index' %}">Admin</a>
-        {% endif %}
-    </nav>
+        <nav class="nav">
+            <a href="/#work">Work</a>
+            <a href="/#bambi-game">Bambi Game</a>
+            <a href="/contact/">Let’s talk</a>
+            <a href="/blog/">Blog</a>
+            <a href="/admin/" class="is-primary">Admin</a>
+        </nav>
 
-    <div class="auth">
-        {% if request.user.is_authenticated %}
-            <a href="{% url 'profile' %}" class="nav-user">
-                <span class="hi">Hi, </span>{{ request.user.username }}
-            </a>
-            <form action="{% url 'logout' %}" method="post" style="display:inline">{% csrf_token %}
-                <button class="btn btn--light" type="submit">Log out</button>
-            </form>
-        {% else %}
-            <a class="btn btn--ghost" href="{% url 'login' %}">Sign in</a>
-            <a class="btn btn--solid" href="{% url 'signup' %}">Sign up</a>
-        {% endif %}
+        <div class="spacer"></div>
 
-        <div class="theme-toggle" aria-label="Theme">
-            <button type="button" class="swatch" data-set-theme="pink" title="Princess Pink"></button>
-            <button type="button" class="swatch hot" data-set-theme="hot" title="Hot Pink"></button>
-            <button type="button" class="swatch white" data-set-theme="white" title="Snow White"></button>
+        <!-- ★ MINI SEARCH (GET) -->
+        <form action="{% url 'search' %}" method="get" class="nav-search" role="search" aria-label="Site search">
+            <input
+                    id="nav-search-input"
+                    name="q"
+                    value="{{ request.GET.q }}"
+                    placeholder="Search Bambicim…"
+                    autocomplete="off"
+                    inputmode="search"
+            />
+            <button type="submit" aria-label="Search">Search</button>
+        </form>
+
+        <!-- Auth bits (robust to missing URL names) -->
+        <div class="auth">
+            {% if request.user.is_authenticated %}
+                <span>Hi, {{ request.user.first_name|default:request.user.username|default:"bambi" }}</span>
+                {% url 'account_logout' as logout_url %}
+                <a href="{{ logout_url|default:'/accounts/logout/' }}">Log out</a>
+            {% else %}
+                {% url 'account_login' as login_url %}
+                <a href="{{ login_url|default:'/accounts/login/' }}">Log in</a>
+            {% endif %}
+            <!-- your vibe/theme dots can stay here if you have them -->
         </div>
     </div>
 </header>
 
-{# ---------- Page content ---------- #}
-<main id="content">
+<main>
     {% block content %}{% endblock %}
 </main>
 
-{# ---------- Footer ---------- #}
-<footer class="b-footer">
-    <div class="b-container f-grid">
-        <div class="f-brand">
-            <div class="logo">Bambicim</div>
-            <div class="muted">Made with ✨ in Türkiye</div>
-            <div class="muted">© <span id="y"></span> Bambicim</div>
-        </div>
-
-        <nav class="f-col">
-            <h4>Explore</h4>
-            <a href="{% url 'home' %}#work">Work</a>
-            <a href="{% url 'home' %}#game">Bambi Game</a>
-            <a href="{% url 'home' %}#contact">Let’s talk</a>
-            <a href="{% url 'blog:index' %}">Blog</a>
-            <a href="{% url 'sitemap_html' %}">Site map</a>
-        </nav>
-
-        <nav class="f-col">
-            <h4>Company</h4>
-            <a href="{% url 'about' %}">About</a>
-            <a href="{% url 'privacy' %}">Privacy</a>
-            <a href="{% url 'terms' %}">Terms</a>
-        </nav>
-
-        <nav class="f-col">
-            <h4>Account</h4>
-            {% if request.user.is_authenticated %}
-                <a href="{% url 'profile' %}">Profile</a>
-            {% else %}
-                <a href="{% url 'login' %}">Sign in</a>
-                <a href="{% url 'signup' %}">Sign up</a>
-            {% endif %}
-            <a href="mailto:ipek@bambicim.com">ipek@bambicim.com</a>
-        </nav>
-    </div>
+<footer class="b-container py-12">
+    {% block footer %}
+        <p class="muted">© {% now "Y" %} Bambicim — built with lots of pink.</p>
+    {% endblock %}
 </footer>
 
-{# year + smooth scroll for home-page anchors #}
+{% block scripts %}{% endblock %}
+
 <script>
-    // footer year
-    document.getElementById('y').textContent = new Date().getFullYear();
-
-    // If we're already on the home page, make anchor clicks smooth-scroll instead of reloading.
-    (function () {
-        var onHome = location.pathname === "{% url 'home' %}";
-        if (!onHome) return; // from other pages we want the normal navigation to /#id
-
-        document.querySelectorAll('a[data-anchor]').forEach(function (a) {
-            a.addEventListener('click', function (e) {
-                var id = a.getAttribute('data-anchor');
-                var target = document.getElementById(id);
-                if (target) {
-                    e.preventDefault();
-                    target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                    history.replaceState(null, '', '#' + id);
-                }
-            });
-        });
-    })();
+    // Quick UX: press "/" anywhere to focus search (unless typing in an input/textarea)
+    document.addEventListener("keydown", (e) => {
+        const tag = document.activeElement?.tagName;
+        if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA" && !e.metaKey && !e.ctrlKey) {
+            const el = document.getElementById("nav-search-input");
+            if (el) {
+                e.preventDefault();
+                el.focus();
+                el.select();
+            }
+        }
+    });
 </script>
-
-<script defer src="{% static 'js/script.js' %}"></script>
-<script defer src="{% static 'game/engine.js' %}"></script>
-<script src="{% static 'game/achievements.js' %}"></script>
-{% include "components/chatbot.html" %}
-<script>window.BAMBI_MODE = "http";</script>
-<link rel="stylesheet" href="{% static 'css/chatbot.css' %}">
-<script defer src="{% static 'js/chatbot.js' %}"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"
-        onload="window.marked = window.marked || window.marked; /* noop: ensures global */"></script>
 
 </body>
 </html>

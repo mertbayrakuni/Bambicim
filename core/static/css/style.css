@@ -997,3 +997,39 @@ a {
     height: auto;
     border-radius: 12px;
 }
+
+/* search */
+.search-form .input {
+    padding: .65rem .9rem;
+    border-radius: .8rem;
+}
+
+.search-form .btn {
+    margin-left: .5rem;
+    padding: .6rem 1rem;
+    border-radius: .8rem;
+}
+
+.search-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.search-item {
+    padding: .9rem 1rem;
+    border: 1px solid rgba(255, 182, 225, .15);
+    border-radius: 1rem;
+    margin-bottom: .75rem;
+}
+
+.search-item .title {
+    font-weight: 700;
+}
+
+mark {
+    background: #ffb6e1;
+    color: #1a0b18;
+    padding: 0 .15em;
+    border-radius: .25rem;
+}

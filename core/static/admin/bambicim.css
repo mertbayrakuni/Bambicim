@@ -42,7 +42,7 @@ html[data-theme="dark"] {
 }
 
 #content {
-    max-width: 1200px;
+    width: auto !important;
 }
 
 /* ---- layout fixes, scoped to admin only ---- */

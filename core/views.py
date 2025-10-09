@@ -5,7 +5,9 @@ import json
 import logging
 import os
 import re
+from difflib import SequenceMatcher
 from typing import Any, Dict, List, Tuple
+from typing import Iterable
 from uuid import uuid4
 
 from django.conf import settings
@@ -17,6 +19,7 @@ from django.core.files.storage import default_storage
 from django.core.mail import EmailMessage
 from django.core.validators import validate_email
 from django.db.models import F
+from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -27,6 +30,8 @@ from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
+from blog.models import Post
+from portfolio.models import Project
 # keep your app models & art helpers
 from .art import generate_pixel_art, run_in_thread, _prompt_for
 from .models import Scene, Item, Inventory, ChoiceLog, Achievement, UserAchievement, SceneArt
@@ -540,3 +545,70 @@ def api_chat(request):
     except Exception as e:
         log.exception("api_chat error")
         return JsonResponse({"error": "bot_error", "detail": str(e)}, status=500)
+
+
+def _tokens(q: str) -> list[str]:
+    # words with len>=3, lowercase
+    return [t.lower() for t in re.findall(r"\w+", q or "") if len(t) >= 3]
+
+
+def _qs_posts():
+    # prefer your published() manager if present
+    mgr = Post.objects
+    return getattr(mgr, "published", lambda: mgr.all())()
+
+
+def _match_qobj(tokens: Iterable[str]) -> Q:
+    q = Q()
+    for t in tokens:
+        q |= (
+                Q(title__icontains=t) |
+                Q(excerpt__icontains=t) |
+                Q(body__icontains=t) |
+                Q(body_html__icontains=t)
+        )
+    return q
+
+
+def _as_text(obj) -> str:
+    title = strip_tags(getattr(obj, "title", "") or "")
+    excerpt = strip_tags(getattr(obj, "excerpt", "") or "")
+    body = strip_tags(getattr(obj, "body", "") or getattr(obj, "body_html", "") or "")
+    return f"{title}\n{excerpt}\n{body}"
+
+
+def _score(text: str, tokens: list[str]) -> float:
+    # simple hybrid: token hits + fuzzy ratio
+    text_l = text.lower()
+    hits = sum(text_l.count(t) for t in tokens)
+    fuzz = SequenceMatcher(None, " ".join(tokens), text_l[:3000]).ratio()
+    return hits * 2.0 + fuzz  # weight token matches higher
+
+
+def search(request):
+    q = (request.GET.get("q") or "").strip()
+    tokens = _tokens(q)
+    posts = projects = []
+    if q:
+        # Primary filter (fast)
+        base_posts = _qs_posts().filter(_match_qobj(tokens)).distinct()[:50]
+        base_projects = Project.objects.filter(_match_qobj(tokens)).distinct()[:50]
+
+        # Score & sort (fuzzy)
+        posts = sorted(
+            base_posts,
+            key=lambda p: _score(_as_text(p), tokens),
+            reverse=True,
+        )[:20]
+        projects = sorted(
+            base_projects,
+            key=lambda pr: _score(_as_text(pr), tokens),
+            reverse=True,
+        )[:10]
+
+    return render(request, "search.html", {
+        "q": q,
+        "posts": posts,
+        "projects": projects,
+        "tokens": tokens,
+    })
