@@ -1,0 +1,125 @@
+{% load static %}
+{% extends "base.html" %}
+
+{% block title %}Photo Editor{% endblock %}
+
+{% block head_extra %}
+    <link rel="stylesheet" href="{% static 'editor/editor.css' %}">
+{% endblock %}
+
+{% block content %}
+    <section class="b-container py-8">
+        <header class="ed-header">
+            <h1 class="h-xl">Photo Editor</h1>
+            <p class="muted">Fully client-side. Load a photo, tweak, crop, and export.</p>
+        </header>
+
+        <div class="ed-layout">
+            <!-- Controls -->
+            <aside class="ed-panel">
+                <div class="ed-card">
+                    <label class="ed-label">1) Load image</label>
+                    <input id="fileInput" type="file" accept="image/*">
+                    <button id="resetBtn" class="btn" disabled>Reset</button>
+                </div>
+
+                <div class="ed-card">
+                    <label class="ed-label">2) Transform</label>
+                    <div class="ed-row">
+                        <button id="rotL" class="btn" disabled>↶ 90°</button>
+                        <button id="rotR" class="btn" disabled>↷ 90°</button>
+                    </div>
+                    <div class="ed-row">
+                        <button id="flipH" class="btn" disabled>Flip H</button>
+                        <button id="flipV" class="btn" disabled>Flip V</button>
+                    </div>
+                </div>
+
+                <div class="ed-card">
+                    <label class="ed-label">3) Crop</label>
+                    <div class="ed-row">
+                        <select id="aspect" disabled>
+                            <option value="free">Free</option>
+                            <option value="1:1">1:1</option>
+                            <option value="4:5">4:5</option>
+                            <option value="16:9">16:9</option>
+                        </select>
+                        <button id="cropMode" class="btn" disabled>Start crop</button>
+                    </div>
+                    <div class="ed-row">
+                        <button id="applyCrop" class="btn" disabled>Apply</button>
+                        <button id="cancelCrop" class="btn" disabled>Cancel</button>
+                    </div>
+                </div>
+
+                <div class="ed-card">
+                    <label class="ed-label">4) Adjust</label>
+                    <div class="ed-slider">
+                        <span>Brightness</span>
+                        <input id="s_bri" type="range" min="0" max="200" value="100">
+                        <span class="val" id="v_bri">100%</span>
+                    </div>
+                    <div class="ed-slider">
+                        <span>Contrast</span>
+                        <input id="s_con" type="range" min="0" max="200" value="100">
+                        <span class="val" id="v_con">100%</span>
+                    </div>
+                    <div class="ed-slider">
+                        <span>Saturation</span>
+                        <input id="s_sat" type="range" min="0" max="300" value="100">
+                        <span class="val" id="v_sat">100%</span>
+                    </div>
+                    <div class="ed-slider">
+                        <span>Hue</span>
+                        <input id="s_hue" type="range" min="-180" max="180" value="0">
+                        <span class="val" id="v_hue">0°</span>
+                    </div>
+                    <div class="ed-slider">
+                        <span>Sepia</span>
+                        <input id="s_sep" type="range" min="0" max="100" value="0">
+                        <span class="val" id="v_sep">0%</span>
+                    </div>
+                    <div class="ed-slider">
+                        <span>Grayscale</span>
+                        <input id="s_gra" type="range" min="0" max="100" value="0">
+                        <span class="val" id="v_gra">0%</span>
+                    </div>
+                    <div class="ed-slider">
+                        <span>Blur</span>
+                        <input id="s_blur" type="range" min="0" max="10" value="0">
+                        <span class="val" id="v_blur">0px</span>
+                    </div>
+                    <div class="ed-row">
+                        <button class="btn btn-pill" data-preset="bw" disabled id="p_bw">B&W</button>
+                        <button class="btn btn-pill" data-preset="warm" disabled id="p_warm">Warm</button>
+                        <button class="btn btn-pill" data-preset="cool" disabled id="p_cool">Cool</button>
+                        <button class="btn btn-pill" data-preset="vivid" disabled id="p_vivid">Vivid</button>
+                    </div>
+                </div>
+
+                <div class="ed-card">
+                    <label class="ed-label">5) Export</label>
+                    <div class="ed-row">
+                        <select id="fmt" disabled>
+                            <option value="image/png">PNG</option>
+                            <option value="image/jpeg">JPEG</option>
+                        </select>
+                        <input id="quality" type="range" min="50" max="100" value="92" disabled>
+                        <span class="val" id="qv">92</span>
+                    </div>
+                    <button id="downloadBtn" class="btn btn-primary" disabled>Download</button>
+                </div>
+            </aside>
+
+            <!-- Canvas -->
+            <div class="ed-stage">
+                <canvas id="preview" aria-label="Preview canvas"></canvas>
+                <div id="hint" class="ed-hint">Drop an image here or use “Load image”.</div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'editor/editor.js' %}"></script>
+{% endblock %}

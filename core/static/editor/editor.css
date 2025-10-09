@@ -1,0 +1,98 @@
+.ed-header {
+    margin-bottom: 1rem
+}
+
+.ed-layout {
+    display: grid;
+    grid-template-columns:340px 1fr;
+    gap: 1.25rem
+}
+
+.ed-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem
+}
+
+.ed-card {
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 182, 225, .16);
+    border-radius: 1rem;
+    padding: 1rem
+}
+
+.ed-label {
+    font-weight: 700;
+    display: block;
+    margin-bottom: .35rem
+}
+
+.ed-row {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: .35rem
+}
+
+.ed-slider {
+    display: grid;
+    grid-template-columns:120px 1fr 48px;
+    gap: .5rem;
+    align-items: center;
+    margin: .4rem 0
+}
+
+.btn {
+    border: 1px solid rgba(255, 182, 225, .25);
+    background: rgba(255, 255, 255, .06);
+    color: #fff;
+    border-radius: .8rem;
+    padding: .5rem .8rem
+}
+
+.btn:disabled {
+    opacity: .5
+}
+
+.btn-primary {
+    background: #ff5fb8;
+    border-color: transparent;
+    color: #140713
+}
+
+.btn-pill {
+    border-radius: 999px
+}
+
+.ed-stage {
+    position: relative;
+    background: rgba(255, 255, 255, .02);
+    border: 1px dashed rgba(255, 182, 225, .2);
+    border-radius: 1rem;
+    min-height: 520px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden
+}
+
+#preview {
+    max-width: 100%;
+    max-height: 100%;
+    width: 100%;
+    height: 100%
+}
+
+.ed-hint {
+    position: absolute;
+    color: #aaa;
+    font-style: italic;
+    pointer-events: none
+}
+
+@media (max-width: 980px) {
+    .ed-layout {
+        grid-template-columns:1fr
+    }
+}

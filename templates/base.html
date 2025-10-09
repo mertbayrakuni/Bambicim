@@ -10,7 +10,6 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block head_extra %}{% endblock %}
 
-    <!-- tiny styles so the search looks good even before your CSS picks it up -->
     <style>
         .site-header {
             position: sticky;
@@ -116,6 +115,7 @@
             <a href="/#bambi-game">Bambi Game</a>
             <a href="/contact/">Let’s talk</a>
             <a href="/blog/">Blog</a>
+            <a href="{% url 'editor' %}">Editor</a>
             <a href="/admin/" class="is-primary">Admin</a>
         </nav>
 

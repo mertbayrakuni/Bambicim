@@ -84,6 +84,9 @@ urlpatterns = [
 
     # search
     path("", include("core.urls")),
+
+    # editor
+    path("", include("editor.urls")),
 ]
 
 urlpatterns += [
