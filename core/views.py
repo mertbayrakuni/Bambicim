@@ -558,23 +558,34 @@ def _qs_posts():
     return getattr(mgr, "published", lambda: mgr.all())()
 
 
-def _match_qobj(tokens: Iterable[str]) -> Q:
+def _post_match(tokens: Iterable[str]) -> Q:
     q = Q()
     for t in tokens:
         q |= (
                 Q(title__icontains=t) |
                 Q(excerpt__icontains=t) |
-                Q(body__icontains=t) |
-                Q(body_html__icontains=t)
+                Q(content__icontains=t)
         )
+    return q
+
+
+def _proj_match(tokens: Iterable[str]) -> Q:
+    q = Q()
+    for t in tokens:
+        q |= (
+                Q(title__icontains=t) |
+                Q(summary__icontains=t) |  # if you have it
+                Q(description__icontains=t)  # if you have it
+        )
+
     return q
 
 
 def _as_text(obj) -> str:
     title = strip_tags(getattr(obj, "title", "") or "")
-    excerpt = strip_tags(getattr(obj, "excerpt", "") or "")
-    body = strip_tags(getattr(obj, "body", "") or getattr(obj, "body_html", "") or "")
-    return f"{title}\n{excerpt}\n{body}"
+    excerpt = strip_tags(getattr(obj, "excerpt", "") or getattr(obj, "summary", "") or "")
+    content = strip_tags(getattr(obj, "content", "") or "")
+    return f"{title}\n{excerpt}\n{content}"
 
 
 def _score(text: str, tokens: list[str]) -> float:
@@ -591,8 +602,8 @@ def search(request):
     posts = projects = []
     if q:
         # Primary filter (fast)
-        base_posts = _qs_posts().filter(_match_qobj(tokens)).distinct()[:50]
-        base_projects = Project.objects.filter(_match_qobj(tokens)).distinct()[:50]
+        base_posts = _qs_posts().filter(_post_match(tokens)).distinct()[:50]
+        base_projects = Project.objects.filter(_proj_match(tokens)).distinct()[:50]
 
         # Score & sort (fuzzy)
         posts = sorted(
