@@ -1,86 +1,130 @@
-{% load static %}
-<!DOCTYPE html>
+{% load static %} <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>{% block title %}Bambicim{% endblock %}</title>
-    {% block meta %}{% endblock %}
-
-    {# Favicons (make sure these files exist; see notes below) #}
-    <link rel="icon" type="image/png" sizes="192x192" href="{% static 'images/png/pink-butterfly-2.png' %}">
-
+    <title>{% block title %}Bambicim{% endblock %}</title> {% block meta %}{% endblock %}
+    <link rel="icon" href="{% static 'images/png/girl_192.jpg' %}">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block head_extra %}{% endblock %}
+    <style> .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        background: rgba(10, 5, 12, .8);
+        backdrop-filter: saturate(140%) blur(10px)
+    }
+
+    .nav-inner {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 0
+    }
+
+    .brand {
+        font-weight: 900;
+        letter-spacing: .04em
+    }
+
+    .nav {
+        display: flex;
+        gap: .5rem;
+        flex-wrap: wrap
+    }
+
+    .nav a {
+        display: inline-block;
+        padding: .55rem .9rem;
+        border-radius: 1.25rem;
+        border: 1px solid rgba(255, 182, 225, .18)
+    }
+
+    .nav a.is-primary {
+        background: #ff5fb8;
+        color: #140713;
+        border-color: transparent
+    }
+
+    .spacer {
+        flex: 1
+    }
+
+    .nav-search {
+        display: flex;
+        align-items: center;
+        gap: .5rem
+    }
+
+    .nav-search input {
+        width: 18rem;
+        max-width: 45vw;
+        padding: .6rem .9rem;
+        border-radius: .9rem;
+        border: 1px solid rgba(255, 182, 225, .22);
+        background: rgba(255, 255, 255, .04);
+        color: #fff
+    }
+
+    .nav-search button {
+        padding: .55rem .85rem;
+        border-radius: .9rem;
+        border: 1px solid rgba(255, 182, 225, .22);
+        background: rgba(255, 255, 255, .06);
+        color: #fff
+    }
+
+    .auth {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        margin-left: .5rem;
+        white-space: nowrap
+    }
+
+    @media (max-width: 880px) {
+        .nav-search input {
+            width: 11rem
+        }
+
+        .nav a.hide-sm {
+            display: none
+        }
+    }
+
+    mark {
+        background: #ffb6e1;
+        color: #1a0b18;
+        padding: 0 .15em;
+        border-radius: .25rem
+    } </style>
 </head>
 <body>
-
 <header class="site-header">
-    <div class="b-container nav-inner">
-        <a class="brand" href="/">BAMBİCİM</a>
-
-        <nav class="nav" role="navigation" aria-label="Primary">
-            <a href="/#work">Work</a>
-            <a href="/#bambi-game">Bambi Game</a>
-            <a href="/contact/">Let’s talk</a>
-            <a href="/blog/">Blog</a>
-            <a href="{% url 'editor' %}" class="hide-sm">Editor</a>
-            <a href="/admin/" class="is-primary">Admin</a>
+    <div class="b-container nav-inner"><a class="brand" href="/">BAMBİCİM</a>
+        <nav class="nav"><a href="/#work">Work</a> <a href="/#bambi-game">Bambi Game</a> <a href="/contact/">Let’s
+            talk</a> <a href="/blog/">Blog</a> <a href="{% url 'editor' %}">Editor</a> <a href="/admin/"
+                                                                                          class="is-primary">Admin</a>
         </nav>
-
-        <!-- Header search -->
-        <form action="{% url 'search' %}" method="get" class="nav-search" role="search" aria-label="Site search">
-            <input
-                    id="nav-search-input"
-                    name="q"
-                    value="{{ request.GET.q }}"
-                    placeholder="Search Bambicim…"
-                    autocomplete="off"
-                    inputmode="search"
-            />
+        <div class="spacer"></div> <!-- ★ MINI SEARCH (GET) -->
+        <form action="{% url 'search' %}" method="get" class="nav-search" role="search" aria-label="Site search"><input
+                id="nav-search-input" name="q" value="{{ request.GET.q }}" placeholder="Search Bambicim…"
+                autocomplete="off" inputmode="search"/>
             <button type="submit" aria-label="Search">Search</button>
-        </form>
-
-        <!-- Auth -->
-        <div class="auth">
-            {% if request.user.is_authenticated %}
-                <span>Hi, {{ request.user.first_name|default:request.user.username|default:"bambi" }}</span>
-                {% url 'account_logout' as logout_url %}
-                <a href="{{ logout_url|default:'/accounts/logout/' }}">Log out</a>
-            {% else %}
-                {% url 'account_login' as login_url %}
-                <a href="{{ login_url|default:'/accounts/login/' }}">Log in</a>
-            {% endif %}
-        </div>
+        </form> <!-- Auth bits (robust to missing URL names) -->
+        <div class="auth"> {% if request.user.is_authenticated %}
+            <span>Hi, {{ request.user.first_name|default:request.user.username|default:"bambi" }}</span>
+            {% url 'account_logout' as logout_url %}
+            <a href="{{ logout_url|default:'/accounts/logout/' }}">Log out</a> {% else %}
+            {% url 'account_login' as login_url %}
+            <a href="{{ login_url|default:'/accounts/login/' }}">Log in</a> {% endif %}
+            <!-- your vibe/theme dots can stay here if you have them --> </div>
     </div>
 </header>
-
-<main>
-    {% block content %}{% endblock %}
-</main>
-
-<footer class="b-container py-12">
-    {% block footer %}
-        <p class="muted">© {% now "Y" %} Bambicim — built with lots of pink.</p>
-    {% endblock %}
-</footer>
-
+<main> {% block content %}{% endblock %} </main>
+<footer class="b-container py-12"> {% block footer %}
+    <p class="muted">© {% now "Y" %} Bambicim — built with lots of pink.</p> {% endblock %} </footer>
 {% block scripts %}{% endblock %}
-
-<script>
-    // Quick UX: press "/" to focus the header search unless typing already
-    document.addEventListener("keydown", (e) => {
-        const tag = document.activeElement?.tagName;
-        if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA" && !e.metaKey && !e.ctrlKey) {
-            const el = document.getElementById("nav-search-input");
-            if (el) {
-                e.preventDefault();
-                el.focus();
-                el.select();
-            }
-        }
-    });
-</script>
-
+<script> // Quick UX: press "/" anywhere to focus search (unless typing in an input/textarea) document.addEventListener("keydown", (e) => { const tag = document.activeElement?.tagName; if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA" && !e.metaKey && !e.ctrlKey) { const el = document.getElementById("nav-search-input"); if (el) { e.preventDefault(); el.focus(); el.select(); } } }); </script>
 </body>
 </html>
