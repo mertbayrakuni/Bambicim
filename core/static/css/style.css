@@ -1033,3 +1033,31 @@ mark {
     padding: 0 .15em;
     border-radius: .25rem;
 }
+
+.tools-grid {
+    display: grid;
+    grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem
+}
+
+.tool-card {
+    display: block;
+    padding: 1rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 182, 225, .16)
+}
+
+.tool-card:hover {
+    transform: translateY(-1px)
+}
+
+.tool-kicker {
+    display: inline-block;
+    padding: .15rem .5rem;
+    border-radius: 999px;
+    background: #ff5fb8;
+    color: #140713;
+    font-weight: 700;
+    margin-bottom: .5rem
+}
