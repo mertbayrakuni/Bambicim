@@ -5,7 +5,8 @@
 .ed-layout {
     display: grid;
     grid-template-columns:340px 1fr;
-    gap: 1.25rem
+    gap: 1.25rem;
+    align-items: start;
 }
 
 .ed-panel {
@@ -70,6 +71,7 @@
     background: rgba(255, 255, 255, .02);
     border: 1px dashed rgba(255, 182, 225, .2);
     border-radius: 1rem;
+    height: clamp(520px, 68vh, 82vh);
     min-height: 520px;
     display: flex;
     align-items: center;
@@ -86,6 +88,9 @@
 
 .ed-hint {
     position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     color: #aaa;
     font-style: italic;
     pointer-events: none

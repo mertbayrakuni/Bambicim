@@ -63,12 +63,13 @@
 
     function setCanvasSize() {
         const r = stage.getBoundingClientRect();
-        stageW = Math.max(1, Math.floor(r.width));
-        stageH = Math.max(1, Math.floor(r.height));
-        // CSS size
+        const w = Math.max(1, Math.floor(r.width));
+        const h = Math.max(1, Math.floor(r.height));
+        if (w === stageW && h === stageH) return; // idempotent: no thrash
+        stageW = w;
+        stageH = h;
         canvas.style.width = `${stageW}px`;
         canvas.style.height = `${stageH}px`;
-        // backing store pixels
         canvas.width = Math.floor(stageW * dpr);
         canvas.height = Math.floor(stageH * dpr);
     }

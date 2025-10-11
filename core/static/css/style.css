@@ -189,7 +189,7 @@ a {
 }
 
 .site-header .nav-search input {
-    width: clamp(10rem, 28vw, 22rem);
+    width: clamp(10rem, 28vw, 14rem);
     padding: .6rem .9rem;
     border-radius: .9rem;
     border: 1px solid rgba(255, 182, 225, .22);
