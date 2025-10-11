@@ -153,3 +153,8 @@
     </section>
 
 {% endblock %}
+
+{% block scripts %}
+    <script>window.ttwAchv = window.ttwAchv || {};</script>
+    <script defer src="{% static 'game/engine.js' %}"></script>
+{% endblock %}
