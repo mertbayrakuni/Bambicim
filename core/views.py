@@ -569,23 +569,40 @@ def _post_match(tokens: Iterable[str]) -> Q:
     return q
 
 
+def _safe_icontains(model, field, token):
+    # only add clauses that actually exist on the model
+    if field in [f.name for f in model._meta.get_fields()]:
+        return Q(**{f"{field}__icontains": token})
+    return Q()
+
+
 def _proj_match(tokens: Iterable[str]) -> Q:
+    from portfolio.models import Project
+    fields = ["title", "short_desc", "tech_tags", "url"]
     q = Q()
     for t in tokens:
-        q |= (
-                Q(title__icontains=t) |
-                Q(summary__icontains=t) |  # if you have it
-                Q(description__icontains=t)  # if you have it
-        )
-
+        for f in fields:
+            q |= _safe_icontains(Project, f, t)
     return q
 
 
 def _as_text(obj) -> str:
     title = strip_tags(getattr(obj, "title", "") or "")
-    excerpt = strip_tags(getattr(obj, "excerpt", "") or getattr(obj, "summary", "") or "")
-    content = strip_tags(getattr(obj, "content", "") or "")
-    return f"{title}\n{excerpt}\n{content}"
+    # prefer blog fields; otherwise fall back to project fields
+    excerpt = strip_tags(
+        getattr(obj, "excerpt", "") or
+        getattr(obj, "summary", "") or
+        getattr(obj, "short_desc", "") or
+        ""
+    )
+    content = strip_tags(
+        getattr(obj, "content", "") or
+        getattr(obj, "tech_tags", "") or
+        ""
+    )
+    # url can help ranking a tiny bit for very short projects
+    extra = strip_tags(getattr(obj, "url", "") or "")
+    return f"{title}\n{excerpt}\n{content}\n{extra}"
 
 
 def _score(text: str, tokens: list[str]) -> float:

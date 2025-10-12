@@ -1,4 +1,6 @@
 # core/middleware.py
+from django.http import HttpResponseNotFound
+
 from .models import TrafficEvent
 
 SKIP_PREFIXES = ("/admin/", "/static/", "/media/", "/healthz", "/favicon.ico")
@@ -24,3 +26,13 @@ class TrafficMiddleware:
                 # never break the request pipeline
                 pass
         return self.get_response(request)
+
+
+def block_wp_probe(get_response):
+    def middleware(request):
+        p = request.path.lower()
+        if "/wp-" in p or p.endswith("/wlwmanifest.xml"):
+            return HttpResponseNotFound()
+        return get_response(request)
+
+    return middleware
