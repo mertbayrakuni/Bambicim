@@ -101,3 +101,33 @@
         grid-template-columns:1fr
     }
 }
+
+.checkboard {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: conic-gradient(#0000 90deg, #00000010 0) 0 0/16px 16px,
+    conic-gradient(#0000 90deg, #ffffff12 0) 8px 8px/16px 16px;
+}
+
+.ed-toolbar {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    display: flex;
+    gap: 8px;
+}
+
+.zoom-readout {
+    opacity: .9;
+    align-self: center
+}
+
+.grid-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: .25;
+    background: linear-gradient(var(--line) 1px, transparent 1px) 0 0/24px 24px,
+    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0/24px 24px;
+}

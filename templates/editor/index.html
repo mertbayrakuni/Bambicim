@@ -18,6 +18,16 @@
             <!-- Controls -->
             <aside class="ed-panel">
                 <div class="ed-card">
+                    <label class="ed-label">Save</label>
+                    <div class="ed-row">
+                        <input id="saveTitle" type="text" placeholder="Title" style="flex:1"/>
+                        <button id="saveBtn" class="btn btn-primary" disabled>Save</button>
+                    </div>
+                    <div class="ed-row">
+                        <button id="openBtn" class="btn" disabled>Open…</button>
+                    </div>
+                </div>
+                <div class="ed-card">
                     <label class="ed-label">1) Load image</label>
                     <input id="fileInput" type="file" accept="image/*">
                     <button id="resetBtn" class="btn" disabled>Reset</button>
@@ -113,12 +123,41 @@
                     </div>
                     <button id="downloadBtn" class="btn btn-primary" disabled>Download</button>
                 </div>
+
+                <div class="ed-card">
+                    <label class="ed-label">Text</label>
+                    <div class="ed-row">
+                        <button id="toolMove" class="btn btn-pill">🖐 Hand</button>
+                        <button id="toolText" class="btn btn-pill">✎ Text</button>
+                    </div>
+                    <div class="ed-row">
+                        <label>Size</label>
+                        <input id="txtSize" type="number" min="8" max="200" value="32" style="width:80px">
+                        <label>Weight</label>
+                        <select id="txtWeight">
+                            <option>400</option>
+                            <option selected>600</option>
+                            <option>800</option>
+                        </select>
+                    </div>
+                    <div class="ed-row">
+                        <label>Color</label>
+                        <input id="txtColor" type="color" value="#ffffff">
+                    </div>
+                </div>
             </aside>
 
             <!-- Canvas -->
             <div class="ed-stage">
+                <div class="checkboard"></div>
                 <canvas id="preview" aria-label="Preview canvas"></canvas>
                 <div id="hint" class="ed-hint">Drop an image here or use “Load image”.</div>
+                <div class="ed-toolbar">
+                    <button id="gridToggle" class="btn btn-pill">Grid</button>
+                    <span class="zoom-readout" id="zoomReadout">100%</span>
+                    <button id="fitBtn" class="btn btn-pill">Fit</button>
+                    <button id="oneBtn" class="btn btn-pill">100%</button>
+                </div>
             </div>
         </div>
     </section>
@@ -127,3 +166,14 @@
 {% block scripts %}
     <script src="{% static 'editor/editor.js' %}"></script>
 {% endblock %}
+
+
+<!--
+TODO
+Shapes (rect/ellipse/arrow) with fill/stroke, snap to grid/guides
+Basic layers panel (reorder, hide, delete)
+Stickers/emoji palette (server-managed packs via admin)
+Magic background remover (optional: client-side via canvas/Matting lib or server endpoint)
+Keyboard shortcuts: V (Move), T (Text), G (Grid), 1/2/3 for 100/200/300%, Fit = 0
+Persist last settings to localStorage (theme, tool, text style)
+-->
