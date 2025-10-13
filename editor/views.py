@@ -6,11 +6,13 @@ from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.http import JsonResponse, HttpRequest, HttpResponseBadRequest
 from django.shortcuts import render, get_object_or_404
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import EditorPreset, EditorAsset, SavedEdit
 
 
+@ensure_csrf_cookie
 def editor(request: HttpRequest):
     return render(request, "editor/index.html")
 

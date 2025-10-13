@@ -516,6 +516,7 @@
     stage.addEventListener('wheel', (e) => {
         if (!loaded) return;
         e.preventDefault();
+        const r = stage.getBoundingClientRect();
         const factor = e.deltaY < 0 ? 1.1 : 0.9;
         setZoom(zoom * factor, e.clientX - r.left, e.clientY - r.top);
     }, {passive: false});
