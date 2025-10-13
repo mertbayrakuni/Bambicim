@@ -1,32 +1,37 @@
 /* ===== Editor: layout & cards ===== */
 .ed-header {
-    margin-bottom: 1rem;
+    margin-bottom: 1rem
 }
 
 .ed-layout {
     display: grid;
     grid-template-columns:340px 1fr;
     gap: 24px;
-    align-items: stretch; /* right column fills vertically */
+    align-items: stretch; /* sağ kolon tam yükseklik */
+    overflow: visible; /* sticky için kritik: üstte overflow yaratma */
 }
 
 .ed-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+    position: sticky;
+    /* Navbar yüksekliğini değişkenden al; base.html'de .site-header boyutu JS ile yazılıyor */
+    top: calc(var(--nav-h, 88px) + 12px);
+    align-self: start;
+    height: fit-content; /* grid+sticky kombinasyonunda güvenli */
 }
 
+/* kartlar */
 .ed-card {
     background: rgba(255, 255, 255, .04);
     border: 1px solid rgba(255, 182, 225, .16);
     border-radius: 1rem;
     padding: 1rem;
+    margin-bottom: .8rem;
 }
 
 .ed-label {
     font-weight: 700;
     display: block;
-    margin-bottom: .35rem;
+    margin-bottom: .35rem
 }
 
 .ed-row {
@@ -34,7 +39,7 @@
     gap: .5rem;
     flex-wrap: wrap;
     align-items: center;
-    margin-top: .35rem;
+    margin-top: .35rem
 }
 
 .ed-slider {
@@ -51,32 +56,32 @@
     background: rgba(255, 255, 255, .06);
     color: #fff;
     border-radius: .8rem;
-    padding: .5rem .8rem;
+    padding: .5rem .8rem
 }
 
 .btn:disabled {
-    opacity: .5;
+    opacity: .5
 }
 
 .btn-primary {
     background: #ff5fb8;
     border-color: transparent;
-    color: #140713;
+    color: #140713
 }
 
 .btn-pill {
-    border-radius: 999px;
+    border-radius: 999px
 }
 
 /* ===== Work area (right column) ===== */
 .ed-work {
     position: relative;
-    height: calc(100vh - 220px); /* keeps canvas visible & centered */
-    overflow: auto; /* stage scrolls inside this */
-    padding-bottom: 56px; /* breathing room for sticky toolbar */
+    height: calc(100vh - 220px); /* canvas görünür kalsın */
+    overflow: auto; /* sahne içeride scroll */
+    padding-bottom: 56px;
 }
 
-/* Stage that contains the canvas */
+/* Stage */
 .ed-stage {
     position: relative;
     background: rgba(255, 255, 255, .02);
@@ -85,20 +90,20 @@
     min-height: 600px;
     height: clamp(520px, 68vh, 82vh);
     display: flex;
-    align-items: center; /* vertical center */
-    justify-content: center; /* horizontal center */
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
 }
 
-/* The drawing surface (canvas) gets sized by JS; keep responsive fallback */
+/* Canvas */
 #preview {
     width: 100%;
     height: 100%;
     max-width: 100%;
-    max-height: 100%;
+    max-height: 100%
 }
 
-/* Center hint text over stage when nothing loaded */
+/* Hint */
 .ed-hint {
     position: absolute;
     left: 50%;
@@ -106,10 +111,10 @@
     transform: translate(-50%, -50%);
     color: #aaa;
     font-style: italic;
-    pointer-events: none;
+    pointer-events: none
 }
 
-/* Checkerboard background (subtle) */
+/* Checkerboard */
 .checkboard {
     position: absolute;
     inset: 0;
@@ -118,7 +123,7 @@
     conic-gradient(#0000 90deg, #ffffff12 0) 8px 8px/16px 16px;
 }
 
-/* Overlay grid toggled by JS */
+/* Grid overlay */
 .grid-overlay {
     position: absolute;
     inset: 0;
@@ -126,33 +131,32 @@
     background-image: linear-gradient(to right, rgba(255, 255, 255, .06) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, .06) 1px, transparent 1px);
     background-size: 24px 24px;
-    opacity: .25;
+    opacity: .25
 }
 
-/* Toolbar sits at the bottom of the scroll container */
+/* Toolbar */
 .ed-toolbar {
-    position: sticky; /* sticks within .ed-work scrolling */
+    position: sticky;
     bottom: 0;
     z-index: 2;
     display: flex;
     gap: 8px;
     padding: .5rem .5rem .25rem;
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px)
 }
 
-/* Small zoom label */
 .zoom-readout {
     opacity: .9;
-    align-self: center;
+    align-self: center
 }
 
-/* ===== Responsive ===== */
+/* Responsive */
 @media (max-width: 980px) {
     .ed-layout {
-        grid-template-columns:1fr;
+        grid-template-columns:1fr
     }
 
     .ed-work {
-        height: calc(100vh - 300px);
+        height: calc(100vh - 300px)
     }
 }

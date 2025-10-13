@@ -19,7 +19,6 @@ def editor(request: HttpRequest):
 
 @require_GET
 def presets_json(request: HttpRequest):
-    """List active presets so the UI can offer one-click looks."""
     data = [
         dict(id=p.id, name=p.name, description=p.description, payload=p.payload)
         for p in EditorPreset.objects.filter(is_active=True).order_by("name")
@@ -30,7 +29,6 @@ def presets_json(request: HttpRequest):
 @login_required
 @require_POST
 def upload_asset(request: HttpRequest):
-    """Upload a source image; returns asset id + url."""
     f = request.FILES.get("file")
     if not f:
         return HttpResponseBadRequest("no file")
@@ -91,7 +89,7 @@ def save_edit(request: HttpRequest):
 @login_required
 @require_GET
 def list_edits(request: HttpRequest):
-    """Return the current user's recent edits (for a lightweight 'Open' dialog)."""
+    """Return recent edits for this user."""
     items = SavedEdit.objects.filter(owner=request.user).order_by("-updated_at")[:50]
     data = [
         {
@@ -105,6 +103,28 @@ def list_edits(request: HttpRequest):
         for e in items
     ]
     return JsonResponse({"items": data})
+
+
+@login_required
+@require_GET
+def get_edit(request: HttpRequest):
+    """Return a single edit including full serialized state to restore UI."""
+    eid = request.GET.get("id")
+    if not eid:
+        return HttpResponseBadRequest("missing id")
+    e = get_object_or_404(SavedEdit, id=eid, owner=request.user)
+    return JsonResponse({
+        "id": e.id,
+        "title": e.title,
+        "state": e.state or {},
+        "width": e.width,
+        "height": e.height,
+        "format": e.format,
+        "quality": e.quality,
+        "source_id": (e.source_id if e.source_id else None),
+        "last_render": (e.last_render.url if e.last_render else None),
+        "updated_at": e.updated_at.isoformat(),
+    })
 
 
 @login_required
@@ -139,7 +159,6 @@ def upload_render(request: HttpRequest):
         header, b64 = data_url.split(",", 1)
         try:
             import base64
-
             blob = base64.b64decode(b64)
         except Exception:
             return HttpResponseBadRequest("bad data_url")

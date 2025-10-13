@@ -1,10 +1,20 @@
 (() => {
-    // short-hands
+    // ------- helpers -------
     const $ = (s) => document.querySelector(s);
     const $$ = (s) => document.querySelectorAll(s);
     const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const isAuth = (window.BMB_AUTH === true || window.BMB_AUTH === 'true');
 
-    // DOM
+    // Keep sticky offset in sync with real navbar height
+    function setNavH() {
+        const h = document.querySelector('.site-header');
+        if (h) document.documentElement.style.setProperty('--nav-h', (h.offsetHeight || 88) + 'px');
+    }
+
+    document.addEventListener('DOMContentLoaded', setNavH);
+    window.addEventListener('resize', setNavH);
+
+    // ------- DOM -------
     const fileInput = $('#fileInput');
     const resetBtn = $('#resetBtn');
     const rotL = $('#rotL'), rotR = $('#rotR'), flipH = $('#flipH'), flipV = $('#flipV');
@@ -14,7 +24,6 @@
     const pBW = $('#p_bw'), pWarm = $('#p_warm'), pCool = $('#p_cool'), pVivid = $('#p_vivid');
     const undoBtn = $('#undoBtn'), redoBtn = $('#redoBtn');
 
-    // new controls
     const toolMove = $('#toolMove'), toolText = $('#toolText');
     const txtSize = $('#txtSize'), txtWeight = $('#txtWeight'), txtColor = $('#txtColor');
     const gridToggle = $('#gridToggle'), zoomReadout = $('#zoomReadout'), fitBtn = $('#fitBtn'), oneBtn = $('#oneBtn');
@@ -34,10 +43,9 @@
     const hint = $('#hint');
 
     // persistence UI
-    const saveBtn = document.querySelector('#saveBtn');
-    const openBtn = document.querySelector('#openBtn');
-    const saveTitle = document.querySelector('#saveTitle');
-
+    const saveBtn = $('#saveBtn');
+    const openBtn = $('#openBtn');
+    const saveTitle = $('#saveTitle');
 
     // -------- STATE --------
     let originalURL = null;
@@ -62,50 +70,46 @@
     // text/elements & tools
     const elements = []; // {type:'text', x,y, text, size, weight, color}
     let tool = 'move';   // 'move' | 'text'
-    let hoverIndex = -1, activeIndex = -1;
+    let activeIndex = -1;
     let dragDX = 0, dragDY = 0;
 
     // view transform
-    let zoom = 1;      // 1 = fit will compute later; this is applied AFTER fit scale
+    let zoom = 1;
     let panX = 0, panY = 0;
     let showGrid = false;
 
-    // ------- helpers -------
+    // ------- gating -------
     function enableEditing(on) {
         [
             resetBtn, rotL, rotR, flipH, flipV, cropModeBtn, aspectSel, fmtSel, qRange, dlBtn,
-            pBW, pWarm, pCool, pVivid, applyCropBtn, cancelCropBtn
+            pBW, pWarm, pCool, pVivid, applyCropBtn, cancelCropBtn,
+            toolMove, toolText, txtSize, txtWeight, txtColor, gridToggle, fitBtn, oneBtn
         ].forEach(el => el && (el.disabled = !on));
-        Object.values(sliders).forEach(el => el && (el.disabled = !on));
-
-        // text & nav
-        [toolMove, toolText, txtSize, txtWeight, txtColor, gridToggle, fitBtn, oneBtn].forEach(el => el && (el.disabled = !on));
         updateHistoryUI();
     }
 
     function enablePersistence(on) {
-        if (saveBtn) saveBtn.disabled = !on;
-        if (openBtn) openBtn.disabled = !on;
-        if (saveTitle && on && !saveTitle.value) saveTitle.value = "Untitled";
+        const allow = on && isAuth;            // only if logged in
+        if (saveBtn) saveBtn.disabled = !allow;
+        if (openBtn) openBtn.disabled = !allow;
+        if (saveTitle && allow && !saveTitle.value) saveTitle.value = "Untitled";
     }
 
-
+    // ------- sizing & fit -------
     function setCanvasSize() {
         const r = stage.getBoundingClientRect();
         const w = Math.max(1, Math.floor(r.width));
         const h = Math.max(1, Math.floor(r.height));
-        if (w === stageW && h === stageH) return;
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
         stageW = w;
         stageH = h;
-        canvas.style.width = `${stageW}px`;
-        canvas.style.height = `${stageH}px`;
-        canvas.width = Math.floor(stageW * dpr);
-        canvas.height = Math.floor(stageH * dpr);
         updateZoomReadout();
     }
 
     function baseFit() {
-        // fit image into stage (CSS px)
         const W = stageW, H = stageH;
         const iw = img.naturalWidth || 1, ih = img.naturalHeight || 1;
         const s = Math.min(W / iw, H / ih);
@@ -132,7 +136,7 @@
     function snapshot() {
         if (!loaded) return;
         history.push({
-            src: canvas.toDataURL('image/png'), // snapshot of current composed view
+            src: canvas.toDataURL('image/png'),
             filters: {...filters},
             elements: JSON.parse(JSON.stringify(elements)),
             transform: {zoom, panX, panY}
@@ -143,55 +147,22 @@
     }
 
     function restore(state) {
-        // Reconstruct from state; we keep original image unchanged and just restore UI state
-        Object.assign(filters, state.filters);
-        elements.splice(0, elements.length, ...state.elements);
-        zoom = state.transform.zoom;
-        panX = state.transform.panX;
-        panY = state.transform.panY;
+        Object.assign(filters, state.filters || {});
+        elements.splice(0, elements.length, ...((state.elements || [])));
+        zoom = (state.transform && state.transform.zoom) || 1;
+        panX = (state.transform && state.transform.panX) || 0;
+        panY = (state.transform && state.transform.panY) || 0;
 
-        sliders.bri.value = filters.bri;
-        vals.bri.textContent = `${filters.bri}%`;
-        sliders.con.value = filters.con;
-        vals.con.textContent = `${filters.con}%`;
-        sliders.sat.value = filters.sat;
-        vals.sat.textContent = `${filters.sat}%`;
-        sliders.hue.value = filters.hue;
-        vals.hue.textContent = `${filters.hue}°`;
-        sliders.sep.value = filters.sep;
-        vals.sep.textContent = `${filters.sep}%`;
-        sliders.gra.value = filters.gra;
-        vals.gra.textContent = `${filters.gra}%`;
-        sliders.blur.value = filters.blur;
-        vals.blur.textContent = `${filters.blur}px`;
+        if (sliders.bri) sliders.bri.value = filters.bri, vals.bri.textContent = `${filters.bri}%`;
+        if (sliders.con) sliders.con.value = filters.con, vals.con.textContent = `${filters.con}%`;
+        if (sliders.sat) sliders.sat.value = filters.sat, vals.sat.textContent = `${filters.sat}%`;
+        if (sliders.hue) sliders.hue.value = filters.hue, vals.hue.textContent = `${filters.hue}°`;
+        if (sliders.sep) sliders.sep.value = filters.sep, vals.sep.textContent = `${filters.sep}%`;
+        if (sliders.gra) sliders.gra.value = filters.gra, vals.gra.textContent = `${filters.gra}%`;
+        if (sliders.blur) sliders.blur.value = filters.blur, vals.blur.textContent = `${filters.blur}px`;
+
         updateZoomReadout();
         draw();
-    }
-
-    function doUndo() {
-        if (history.length === 0) return;
-        const curr = {
-            src: canvas.toDataURL('image/png'),
-            filters: {...filters},
-            elements: JSON.parse(JSON.stringify(elements)),
-            transform: {zoom, panX, panY}
-        };
-        const prev = history.pop();
-        future.push(curr);
-        restore(prev);
-    }
-
-    function doRedo() {
-        if (future.length === 0) return;
-        const curr = {
-            src: canvas.toDataURL('image/png'),
-            filters: {...filters},
-            elements: JSON.parse(JSON.stringify(elements)),
-            transform: {zoom, panX, panY}
-        };
-        const next = future.pop();
-        history.push(curr);
-        restore(next);
     }
 
     // ------- draw pipeline -------
@@ -200,22 +171,18 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (!loaded) return;
 
-        const {s, ox, oy, vw, vh} = baseFit();
+        const {s, ox, oy} = baseFit();
 
-        // world transform (device pixels)
         ctx.save();
         ctx.scale(dpr, dpr);
-
-        // translate to fit origin, then apply pan & zoom
         ctx.translate(ox + panX, oy + panY);
         ctx.scale(zoom, zoom);
 
-        // draw image with filters at base scale s
         ctx.filter = cssFilter();
         ctx.drawImage(img, 0, 0, img.naturalWidth * s, img.naturalHeight * s);
         ctx.filter = 'none';
 
-        // draw elements
+        // elements
         for (let i = 0; i < elements.length; i++) {
             const el = elements[i];
             if (el.type === 'text') {
@@ -224,21 +191,13 @@
                 ctx.fillStyle = el.color;
                 ctx.textBaseline = 'top';
                 ctx.fillText(el.text, el.x, el.y);
-                if (i === activeIndex) {
-                    // selection box
-                    const m = ctx.measureText(el.text);
-                    const w = m.width, h = el.size * 1.2;
-                    ctx.strokeStyle = '#ff5fb8';
-                    ctx.lineWidth = 1 / zoom; // scale-aware
-                    ctx.strokeRect(el.x - 2, el.y - 2, w + 4, h + 4);
-                }
                 ctx.restore();
             }
         }
 
         ctx.restore();
 
-        // (optional) grid overlay
+        // grid overlay
         if (showGrid) {
             if (!$('.grid-overlay')) {
                 const div = document.createElement('div');
@@ -250,7 +209,6 @@
         }
     }
 
-    // convert stage coords -> document coords under fit+transform
     function toDoc(x, y) {
         const {s, ox, oy} = baseFit();
         const dx = (x - ox - panX);
@@ -258,7 +216,7 @@
         return {x: dx / zoom, y: dy / zoom, baseScale: s};
     }
 
-    // ------- loading/reset -------
+    // ------- load/reset -------
     function loadFromFile(file) {
         const url = URL.createObjectURL(file);
         originalURL = url;
@@ -279,7 +237,7 @@
             fitToScreen();
             draw();
             enableEditing(true);
-            enablePersistence(true);
+            enablePersistence(true); // will internally require auth
         };
         imgNew.src = url;
     }
@@ -305,24 +263,17 @@
 
     function resetFilters(alsoDraw = true) {
         Object.assign(filters, {bri: 100, con: 100, sat: 100, hue: 0, sep: 0, gra: 0, blur: 0});
-        sliders.bri.value = 100;
-        vals.bri.textContent = '100%';
-        sliders.con.value = 100;
-        vals.con.textContent = '100%';
-        sliders.sat.value = 100;
-        vals.sat.textContent = '100%';
-        sliders.hue.value = 0;
-        vals.hue.textContent = '0°';
-        sliders.sep.value = 0;
-        vals.sep.textContent = '0%';
-        sliders.gra.value = 0;
-        vals.gra.textContent = '0%';
-        sliders.blur.value = 0;
-        vals.blur.textContent = '0px';
+        if (sliders.bri) sliders.bri.value = 100, vals.bri.textContent = '100%';
+        if (sliders.con) sliders.con.value = 100, vals.con.textContent = '100%';
+        if (sliders.sat) sliders.sat.value = 100, vals.sat.textContent = '100%';
+        if (sliders.hue) sliders.hue.value = 0, vals.hue.textContent = '0°';
+        if (sliders.sep) sliders.sep.value = 0, vals.sep.textContent = '0%';
+        if (sliders.gra) sliders.gra.value = 0, vals.gra.textContent = '0%';
+        if (sliders.blur) sliders.blur.value = 0, vals.blur.textContent = '0px';
         if (alsoDraw) draw();
     }
 
-    // ------- transforms (baked) -------
+    // ------- transforms -------
     function bakeTransform(drawFn, newW, newH) {
         const off = document.createElement('canvas');
         off.width = newW;
@@ -376,7 +327,6 @@
     function applyCrop() {
         if (!sel || !loaded) return;
         const {s, ox, oy} = baseFit();
-        // convert CSS px selection → image pixels through fit scale (not zoom/pan because we draw crop over stage)
         const ix = Math.max(0, Math.round((sel.x - ox) / s));
         const iy = Math.max(0, Math.round((sel.y - oy) / s));
         const iw = Math.max(1, Math.round(sel.w / s));
@@ -395,7 +345,7 @@
 
         cropMode = false;
         sel = null;
-        elements.length = 0; // elements are invalid after crop (simplify v1)
+        elements.length = 0;
         fitToScreen();
     }
 
@@ -425,7 +375,6 @@
         updateZoomReadout();
         draw();
     }
-
 
     // ------- events -------
     fileInput?.addEventListener('change', (e) => {
@@ -459,7 +408,6 @@
     // crop drag
     stage.addEventListener('mousedown', (e) => {
         if (tool === 'move' && (e.button === 1 || e.buttons === 4)) {
-            // middle-mouse pans like hand
             dragging = true;
             dragDX = e.clientX;
             dragDY = e.clientY;
@@ -492,7 +440,6 @@
             if (Math.abs(w) / Math.abs(h || 1) > ratio) h = Math.sign(h || 1) * Math.abs(w) / ratio;
             else w = Math.sign(w || 1) * Math.abs(h) * ratio;
         }
-        // normalize
         if (w < 0) {
             sel.x += w;
             w = -w;
@@ -506,13 +453,10 @@
         draw();
     });
     window.addEventListener('mouseup', () => {
-        if (dragging && tool === 'move' && !cropMode) {
-            stage.style.cursor = '';
-        }
+        if (dragging && tool === 'move' && !cropMode) stage.style.cursor = '';
         dragging = false;
     });
 
-    // wheel zoom (cmd/ctrl+wheel also works on most OS; we’ll keep simple)
     stage.addEventListener('wheel', (e) => {
         if (!loaded) return;
         e.preventDefault();
@@ -521,8 +465,7 @@
         setZoom(zoom * factor, e.clientX - r.left, e.clientY - r.top);
     }, {passive: false});
 
-    // space = temporary hand tool
-    let spaceHeld = false;
+    // history
     window.addEventListener('keydown', (e) => {
         const z = (e.key === 'z' || e.key === 'Z');
         if ((e.metaKey || e.ctrlKey) && z && !e.shiftKey) {
@@ -533,21 +476,42 @@
             e.preventDefault();
             doRedo();
         }
-        if (e.code === 'Space' && !spaceHeld) {
-            spaceHeld = true;
-            tool = 'move';
+        if (e.code === 'Space') {
             stage.style.cursor = 'grab';
         }
     });
     window.addEventListener('keyup', (e) => {
-        if (e.code === 'Space') {
-            spaceHeld = false;
-            stage.style.cursor = '';
-        }
+        if (e.code === 'Space') stage.style.cursor = '';
     });
 
+    function doUndo() {
+        if (history.length === 0) return;
+        const curr = {
+            src: canvas.toDataURL('image/png'),
+            filters: {...filters},
+            elements: JSON.parse(JSON.stringify(elements)),
+            transform: {zoom, panX, panY}
+        };
+        const prev = history.pop();
+        future.push(curr);
+        restore(prev);
+    }
+
+    function doRedo() {
+        if (future.length === 0) return;
+        const curr = {
+            src: canvas.toDataURL('image/png'),
+            filters: {...filters},
+            elements: JSON.parse(JSON.stringify(elements)),
+            transform: {zoom, panX, panY}
+        };
+        const next = future.pop();
+        history.push(curr);
+        restore(next);
+    }
+
     // sliders
-    function setValLabel(key, v, unit) {
+    function label(key, v, unit) {
         vals[key].textContent = unit === 'deg' ? `${v}°` : unit === 'px' ? `${v}px` : `${v}%`;
     }
 
@@ -555,7 +519,7 @@
         sliders[key]?.addEventListener('input', (e) => {
             const v = Number(e.target.value);
             filters[key] = v;
-            setValLabel(key, v, unit);
+            label(key, v, unit);
             draw();
         });
         sliders[key]?.addEventListener('change', () => snapshot());
@@ -600,7 +564,6 @@
     });
     dlBtn?.addEventListener('click', () => {
         if (!loaded) return;
-        // re-render at image resolution with filters & elements
         const off = document.createElement('canvas');
         off.width = img.naturalWidth;
         off.height = img.naturalHeight;
@@ -610,10 +573,9 @@
         c.drawImage(img, 0, 0);
         c.filter = 'none';
 
-        // paint elements in image pixel space: scale positions from baseFit.s
         const {s} = baseFit();
         c.save();
-        c.scale(1 / s, 1 / s); // invert base scaling to map our screen coords back to image px
+        c.scale(1 / s, 1 / s);
         elements.forEach(el => {
             if (el.type === 'text') {
                 c.font = `${el.weight} ${el.size}px Inter, system-ui, sans-serif`;
@@ -633,7 +595,7 @@
         a.click();
     });
 
-    // tools
+    // tools & text
     toolMove?.addEventListener('click', () => {
         tool = 'move';
     });
@@ -645,24 +607,17 @@
         showGrid = !showGrid;
         draw();
     });
-    fitBtn?.addEventListener('click', () => {
-        fitToScreen();
-    });
-    oneBtn?.addEventListener('click', () => {
-        setZoom(1, stageW / 2, stageH / 2);
-    });
+    fitBtn?.addEventListener('click', () => fitToScreen());
+    oneBtn?.addEventListener('click', () => setZoom(1, stageW / 2, stageH / 2));
 
-    // placing & dragging text
     stage.addEventListener('click', (e) => {
-        if (!loaded) return;
-        if (cropMode) return;
-        if (tool !== 'text') return;
-
+        if (!loaded || cropMode || tool !== 'text') return;
         const r = stage.getBoundingClientRect();
-        const {x, y} = toDoc(e.clientX - r.left + 0, e.clientY - r.top + 0);
+        const {x, y} = toDoc(e.clientX - r.left, e.clientY - r.top);
         const el = {
             type: 'text',
-            x, y,
+            x,
+            y,
             text: 'Your text',
             size: Number(txtSize.value || 32),
             weight: String(txtWeight.value || '600'),
@@ -676,84 +631,30 @@
 
     stage.addEventListener('mousedown', (e) => {
         if (!loaded || cropMode) return;
-        if (tool === 'text') {
-            // begin dragging active text if clicked inside
-            const hit = hitTestText(e);
-            if (hit.index !== -1) {
-                activeIndex = hit.index;
-                dragging = true;
-                dragDX = e.clientX;
-                dragDY = e.clientY;
-            }
+        if (tool === 'text' && activeIndex !== -1) {
+            const r = stage.getBoundingClientRect();
+            const {x, y} = toDoc(e.clientX - r.left, e.clientY - r.top);
+            dragDX = e.clientX;
+            dragDY = e.clientY;
+            dragging = true;
         }
     });
     stage.addEventListener('mousemove', (e) => {
         if (!loaded || cropMode) return;
         if (tool === 'text' && dragging && activeIndex !== -1) {
-            const dx = (e.clientX - dragDX) / (zoom); // scale-aware
-            const dy = (e.clientY - dragDY) / (zoom);
-            elements[activeIndex].x += dx;
-            elements[activeIndex].y += dy;
+            elements[activeIndex].x += (e.clientX - dragDX) / zoom;
+            elements[activeIndex].y += (e.clientY - dragDY) / zoom;
             dragDX = e.clientX;
             dragDY = e.clientY;
             draw();
         }
     });
     window.addEventListener('mouseup', () => {
-        if (dragging && tool === 'text') {
-            snapshot();
-        }
+        if (dragging && tool === 'text') snapshot();
         dragging = false;
     });
 
-    // double-click to edit text
-    stage.addEventListener('dblclick', (e) => {
-        if (!loaded || cropMode) return;
-        const hit = hitTestText(e);
-        if (hit.index === -1) return;
-        const el = elements[hit.index];
-        const text = prompt('Edit text:', el.text);
-        if (text != null) {
-            el.text = text;
-            snapshot();
-            draw();
-        }
-    });
-
-    function hitTestText(e) {
-        const r = stage.getBoundingClientRect();
-        const pt = toDoc(e.clientX - r.left, e.clientY - r.top);
-        const {s} = baseFit();
-        // we measure in current canvas transform; approximate bounding boxes
-        for (let i = elements.length - 1; i >= 0; i--) {
-            const el = elements[i];
-            if (el.type !== 'text') continue;
-            // measure using an offscreen 2d context at 1:1
-            ctx.save();
-            ctx.font = `${el.weight} ${el.size}px Inter, system-ui, sans-serif`;
-            const w = ctx.measureText(el.text).width;
-            ctx.restore();
-            const h = el.size * 1.2;
-            const within = (pt.x >= el.x && pt.x <= el.x + w) && (pt.y >= el.y && pt.y <= el.y + h);
-            if (within) return {index: i};
-        }
-        return {index: -1};
-    }
-
-    // init
-    enableEditing(false);
-    setCanvasSize();
-    const ro = new ResizeObserver(() => {
-        setCanvasSize();
-        draw();
-    });
-    ro.observe(stage);
-    window.addEventListener('resize', () => {
-        setCanvasSize();
-        draw();
-    });
-
-    // ---- Server integration (minimal v1) ----
+    // ---- Server integration ----
     let currentEditId = null;
     let currentSourceId = null;
 
@@ -764,11 +665,7 @@
     }
 
     function collectState() {
-        const state = {
-            filters,
-            elements,
-            transform: {zoom, panX, panY},
-        };
+        const state = {filters, elements, transform: {zoom, panX, panY}};
         return {
             title: (saveTitle && saveTitle.value) || "Untitled",
             state,
@@ -781,9 +678,9 @@
         };
     }
 
-    document.querySelector('#fileInput')?.addEventListener('change', async (e) => {
+    fileInput?.addEventListener('change', async (e) => {
         const f = e.target.files && e.target.files[0];
-        if (!f) return;
+        if (!f || !isAuth) return; // asset yükleme için auth gerekli
         try {
             const form = new FormData();
             form.append('file', f);
@@ -802,34 +699,79 @@
     }, {once: false});
 
     saveBtn?.addEventListener('click', async () => {
+        if (!isAuth) return alert('Giriş yapmalısın.');
         const payload = collectState();
         const res = await fetch('/editor/api/save', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRF()
-            },
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRF()},
             body: JSON.stringify(payload),
             credentials: 'same-origin'
         });
-        if (!res.ok) return alert('Save failed');
+        if (!res.ok) return alert('Kaydetme başarısız');
         const j = await res.json();
         currentEditId = j.id;
-        alert('Saved ✓');
+        alert('Kaydedildi ✓');
     });
 
     openBtn?.addEventListener('click', async () => {
+        if (!isAuth) return alert('Giriş yapmalısın.');
         const res = await fetch('/editor/api/list', {credentials: 'same-origin'});
-        if (!res.ok) return alert('Open failed');
+        if (!res.ok) return alert('Liste alınamadı');
         const j = await res.json();
-        if (!j.items?.length) return alert('No edits yet');
-        const choice = prompt('Open which id?\n' + j.items.map(i => `${i.id}: ${i.title}`).join('\n'));
+        if (!j.items?.length) return alert('Kayıt yok');
+
+        const choice = prompt('Açılacak ID?\n' + j.items.map(i => `${i.id}: ${i.title}`).join('\n'));
         if (!choice) return;
-        const picked = j.items.find(i => String(i.id) === String(choice));
-        if (!picked) return alert('Not found');
-        alert('For v1 this is meta-only; add /editor/api/get?id=… to restore full state.');
+        const pick = j.items.find(i => String(i.id) === String(choice));
+        if (!pick) return alert('Bulunamadı');
+
+        const r2 = await fetch('/editor/api/get?id=' + pick.id, {credentials: 'same-origin'});
+        if (!r2.ok) return alert('Yükleme başarısız');
+        const ed = await r2.json();
+
+        // state restore
+        if (!loaded) {
+            // boş bir 1x1 görselle hızlı başlat; render borçlanmadan UI’yı ayağa kaldıralım
+            const tmp = document.createElement('canvas');
+            tmp.width = Math.max(1, ed.width || 1);
+            tmp.height = Math.max(1, ed.height || 1);
+            const dataUrl = tmp.toDataURL('image/png');
+            const imgNew = new Image();
+            imgNew.onload = () => {
+                img = imgNew;
+                loaded = true;
+                enableEditing(true);
+                hint && (hint.style.display = 'none');
+                setCanvasSize();
+                fitToScreen();
+                restore(ed.state || {});
+            };
+            imgNew.src = dataUrl;
+        } else {
+            restore(ed.state || {});
+        }
+        currentEditId = ed.id || null;
+        saveTitle && (saveTitle.value = ed.title || 'Untitled');
+        enablePersistence(true);
+        draw();
+        alert('Yüklendi ✓');
     });
 
+    // init
+    enableEditing(false);
+    enablePersistence(false);
+    setCanvasSize();
+    const ro = new ResizeObserver(() => {
+        setCanvasSize();
+        draw();
+    });
+    ro.observe(stage);
+    window.addEventListener('resize', () => {
+        setCanvasSize();
+        draw();
+    });
+
+    // optional: get presets
     (async () => {
         try {
             const res = await fetch('/editor/api/presets');
@@ -840,5 +782,4 @@
         } catch (_) {
         }
     })();
-
 })();
