@@ -1,69 +1,82 @@
-/* ===== Header & layout ===== */
-.ed-header {
-    margin-bottom: 1rem;
+/* ROOT LAYOUT -------------------------------------------------- */
+
+.pe-root {
+    padding: 1.25rem 0 2rem;
 }
 
-.ed-layout {
-    display: grid;
-    grid-template-columns: 340px 1fr;
-    gap: 24px;
-    align-items: stretch;
-}
-
-/* SOL panel – sticky + kendi içinde scroll */
-.ed-panel {
-    position: sticky;
-    top: calc(var(--nav-h, 88px) + 12px);
-    max-height: calc(100vh - var(--nav-h, 88px) - 24px);
-    overflow-y: auto;
-    align-self: flex-start;
-}
-
-/* Sağ çalışma alanı da sticky: kayarken foto hep görünür */
-.ed-work {
-    position: sticky;
-    top: calc(var(--nav-h, 88px) + 12px);
-    height: calc(100vh - var(--nav-h, 88px) - 24px);
-}
-
-/* kartlar */
-.ed-card {
-    background: rgba(255, 255, 255, .04);
-    border: 1px solid rgba(255, 182, 225, .16);
-    border-radius: 1rem;
-    padding: 1rem;
-    margin-bottom: .8rem;
-}
-
-.ed-label {
-    font-weight: 700;
-    display: block;
-    margin-bottom: .35rem;
-}
-
-.ed-row {
+.pe-topbar {
     display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: .75rem;
+    gap: 1rem;
+}
+
+.pe-top-left h1 {
+    margin: 0;
+}
+
+.pe-top-sub {
+    font-size: .85rem;
+    opacity: .7;
+}
+
+.pe-top-right {
+    display: flex;
+    align-items: center;
     gap: .5rem;
     flex-wrap: wrap;
-    align-items: center;
-    margin-top: .35rem;
 }
 
-.ed-slider {
-    display: grid;
-    grid-template-columns: 120px 1fr 48px;
-    gap: .5rem;
-    align-items: center;
-    margin: .4rem 0;
-}
-
-.ed-help {
+.pe-chip {
+    border-radius: 999px;
+    padding: .2rem .75rem;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 182, 225, .2);
     font-size: .8rem;
-    opacity: .7;
-    margin-top: .4rem;
 }
 
-/* ===== Buttons ===== */
+/* ana grid: sol tools, orta canvas, sağ paneller */
+.pe-main {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) 320px;
+    gap: 0.75rem;
+    height: calc(100vh - var(--nav-h, 88px) - 64px);
+    min-height: 520px;
+}
+
+/* SOL TOOLBAR -------------------------------------------------- */
+
+.pe-tools {
+    width: 60px;
+    border-radius: 1rem;
+    background: rgba(0, 0, 0, .35);
+    border: 1px solid rgba(255, 182, 225, .18);
+    padding: .5rem .35rem;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    align-items: center;
+}
+
+.pe-tool {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+}
+
+.pe-tool-sep {
+    width: 100%;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+    margin: .35rem 0;
+}
+
+/* Ortak button stili ------------------------------------------- */
+
 .btn {
     border: 1px solid rgba(255, 182, 225, .25);
     background: rgba(255, 255, 255, .06);
@@ -89,19 +102,30 @@
     border-radius: 999px;
 }
 
-/* ===== Work area (right column) ===== */
+/* ORTA CANVAS -------------------------------------------------- */
+
+.pe-center {
+    position: relative;
+    padding: 0 .5rem;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+}
+
+/* sahne tüm orta alanı doldursun */
 .ed-stage {
     position: relative;
-    background: rgba(255, 255, 255, .02);
-    border: 1px dashed rgba(255, 182, 225, .2);
-    border-radius: 1rem;
-    width: 100%;
+    width: min(1180px, 100%);
     height: 100%;
-    min-height: 520px;
+    min-height: 480px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, .02);
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 182, 225, .20);
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
 }
 
 /* Canvas */
@@ -110,6 +134,15 @@
     height: 100%;
     max-width: 100%;
     max-height: 100%;
+}
+
+/* Checkerboard */
+.checkboard {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: conic-gradient(#0000 90deg, #00000010 0) 0 0/16px 16px,
+    conic-gradient(#0000 90deg, #ffffff12 0) 8px 8px/16px 16px;
 }
 
 /* Hint */
@@ -124,16 +157,7 @@
     text-align: center;
 }
 
-/* Checkerboard */
-.checkboard {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: conic-gradient(#0000 90deg, #00000010 0) 0 0/16px 16px,
-    conic-gradient(#0000 90deg, #ffffff12 0) 8px 8px/16px 16px;
-}
-
-/* Grid overlay */
+/* Grid overlay sahneye yapışık */
 .grid-overlay {
     position: absolute;
     inset: 0;
@@ -144,7 +168,7 @@
     opacity: .38;
 }
 
-/* Crop rectangle overlay */
+/* Crop overlay */
 .crop-rect {
     position: absolute;
     border: 1px dashed #fff;
@@ -152,32 +176,61 @@
     pointer-events: none;
 }
 
-/* Toolbar (bottom of stage, sticky) */
-.ed-toolbar {
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
-    display: inline-flex;
-    gap: 8px;
-    padding: .5rem .5rem .25rem;
-    margin-top: .5rem;
-    backdrop-filter: blur(10px);
-    background: linear-gradient(to top, rgba(10, 0, 20, .9), transparent);
+/* SAĞ PANEL ---------------------------------------------------- */
+
+.pe-sidebar {
+    border-radius: 1rem;
+    background: rgba(0, 0, 0, .35);
+    border: 1px solid rgba(255, 182, 225, .18);
+    padding: .75rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
 }
 
-.zoom-readout {
-    opacity: .9;
-    align-self: center;
-    min-width: 48px;
-    text-align: center;
+/* kartlar */
+.ed-card {
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 182, 225, .16);
+    border-radius: 1rem;
+    padding: .75rem .9rem;
 }
 
-/* ===== Layers panel ===== */
+.ed-label {
+    font-weight: 700;
+    display: block;
+    margin-bottom: .35rem;
+}
+
+.ed-row {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: .35rem;
+}
+
+.ed-slider {
+    display: grid;
+    grid-template-columns: 120px 1fr 48px;
+    gap: .4rem;
+    align-items: center;
+    margin: .35rem 0;
+}
+
+.ed-help {
+    font-size: .8rem;
+    opacity: .7;
+    margin-top: .4rem;
+}
+
+/* katman listesi */
 .ed-layers {
     list-style: none;
     margin: .35rem 0 0;
     padding: 0;
-    max-height: 160px;
+    max-height: 150px;
     overflow-y: auto;
     border-radius: .6rem;
     background: rgba(0, 0, 0, .2);
@@ -212,20 +265,49 @@
     padding: 0 .1rem;
 }
 
-/* Responsive */
-@media (max-width: 980px) {
-    .ed-layout {
-        grid-template-columns: 1fr;
+/* RESPONSIVE --------------------------------------------------- */
+
+@media (max-width: 1100px) {
+    .pe-main {
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+        height: auto;
     }
 
-    .ed-panel,
-    .ed-work {
-        position: static;
-        height: auto;
-        max-height: none;
+    .pe-center {
+        grid-column: 1 / 3;
+        margin-bottom: .75rem;
+    }
+
+    .pe-sidebar {
+        grid-column: 2 / 3;
+    }
+}
+
+@media (max-width: 800px) {
+    .pe-main {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto;
+    }
+
+    .pe-tools {
+        flex-direction: row;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .pe-center {
+        grid-column: 1 / 2;
+        order: 2;
+    }
+
+    .pe-sidebar {
+        grid-column: 1 / 2;
+        order: 3;
     }
 
     .ed-stage {
-        min-height: 420px;
+        width: 100%;
+        min-height: 360px;
     }
 }

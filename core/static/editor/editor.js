@@ -8,6 +8,7 @@
     const canvas = $('#preview');
     const ctx = canvas.getContext('2d');
     const hint = $('#hint');
+    const txtContent = $('#txtContent');
 
     const fileInput = $('#fileInput');
     const resetBtn = $('#resetBtn');
@@ -686,12 +687,26 @@
 
     // ------- tools / text helpers -------
     function syncTextControls() {
-        if (activeIndex < 0 || activeIndex >= elements.length) return;
+        if (activeIndex === -1 || activeIndex >= elements.length) return;
         const el = elements[activeIndex];
-        txtSize.value = el.size;
-        txtWeight.value = el.weight;
-        txtColor.value = el.color;
+        if (txtContent) txtContent.value = el.text || '';
+        if (txtSize) txtSize.value = el.size;
+        if (txtWeight) txtWeight.value = el.weight;
+        if (txtColor) txtColor.value = el.color;
+        if (txtContent) {
+            txtContent.addEventListener('input', () => {
+                if (activeIndex < 0 || activeIndex >= elements.length) return;
+                elements[activeIndex].text = txtContent.value;
+                draw();
+            });
+            txtContent.addEventListener('blur', () => {
+                if (activeIndex < 0 || activeIndex >= elements.length) return;
+                snapshot();
+            });
+        }
+
     }
+
 
     txtSize?.addEventListener('change', () => {
         if (activeIndex < 0 || activeIndex >= elements.length) return;
