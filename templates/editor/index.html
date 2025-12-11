@@ -11,52 +11,34 @@
     <section class="b-container py-8">
         <header class="ed-header">
             <h1 class="h-xl">Photo Editor</h1>
-            <p class="muted">Tamamen tarayıcı üzerinde. Fotoğraf yükle, düzenle, kırp ve indir.</p>
+            <p class="muted">
+                Tamamen tarayıcı üzerinde. Fotoğraf yükle, katmanlarla çalış, düzenle, kırp ve indir.
+            </p>
         </header>
 
         <div class="ed-layout">
-            <!-- SOL PALET (STICKY) -->
+            <!-- SOL PANEL (STICKY) -->
             <aside class="ed-panel">
-                {% if not request.user.is_authenticated %}
-                    <div class="ed-card">
-                        <strong>Kaydet / Aç</strong> için lütfen
-                        <a href="{% url 'login' %}?next={% url 'editor' %}">giriş yap</a>.
-                    </div>
-                {% endif %}
-
-                <div class="ed-card">
-                    <label class="ed-label">Kaydet</label>
-                    <div class="ed-row">
-                        <input id="saveTitle" type="text" placeholder="Başlık" style="flex:1"/>
-                        <button id="saveBtn" class="btn btn-primary" disabled>Kaydet</button>
-                    </div>
-                    <div class="ed-row">
-                        <button id="openBtn" class="btn" disabled>Aç…</button>
-                    </div>
-                </div>
 
                 <div class="ed-card">
                     <label class="ed-label">1) Görsel Yükle</label>
                     <input id="fileInput" type="file" accept="image/*">
                     <button id="resetBtn" class="btn" disabled>Sıfırla</button>
+                    <p class="ed-help">Ayrıca sahneye görseli sürükleyip bırakabilirsin.</p>
                 </div>
 
+                <!-- Katmanlar -->
                 <div class="ed-card">
-                    <label class="ed-label">2) Dönüştür</label>
+                    <label class="ed-label">2) Katmanlar</label>
+                    <ul id="layerList" class="ed-layers"></ul>
                     <div class="ed-row">
-                        <button id="undoBtn" class="btn" disabled>Geri Al ⌘Z</button>
-                        <button id="redoBtn" class="btn" disabled>İleri Al ⌘⇧Z</button>
-                    </div>
-                    <div class="ed-row">
-                        <button id="rotL" class="btn" disabled>↶ 90°</button>
-                        <button id="rotR" class="btn" disabled>↷ 90°</button>
-                    </div>
-                    <div class="ed-row">
-                        <button id="flipH" class="btn" disabled>Yatay Çevir</button>
-                        <button id="flipV" class="btn" disabled>Dikey Çevir</button>
+                        <button id="layerUp" class="btn btn-pill" disabled>Yukarı</button>
+                        <button id="layerDown" class="btn btn-pill" disabled>Aşağı</button>
+                        <button id="layerDelete" class="btn btn-pill" disabled>Sil</button>
                     </div>
                 </div>
 
+                <!-- Kırp -->
                 <div class="ed-card">
                     <label class="ed-label">3) Kırp</label>
                     <div class="ed-row">
@@ -72,8 +54,17 @@
                         <button id="applyCrop" class="btn" disabled>Uygula</button>
                         <button id="cancelCrop" class="btn" disabled>Vazgeç</button>
                     </div>
+                    <div class="ed-row">
+                        <button id="rotL" class="btn" disabled>↶ 90°</button>
+                        <button id="rotR" class="btn" disabled>↷ 90°</button>
+                    </div>
+                    <div class="ed-row">
+                        <button id="flipH" class="btn" disabled>Yatay Çevir</button>
+                        <button id="flipV" class="btn" disabled>Dikey Çevir</button>
+                    </div>
                 </div>
 
+                <!-- Ayarlar (filtreler) -->
                 <div class="ed-card">
                     <label class="ed-label">4) Ayar</label>
                     <div class="ed-slider">
@@ -119,21 +110,9 @@
                     </div>
                 </div>
 
+                <!-- Metin aracı -->
                 <div class="ed-card">
-                    <label class="ed-label">5) Dışa Aktar</label>
-                    <div class="ed-row">
-                        <select id="fmt" disabled>
-                            <option value="image/png">PNG</option>
-                            <option value="image/jpeg">JPEG</option>
-                        </select>
-                        <input id="quality" type="range" min="50" max="100" value="92" disabled>
-                        <span class="val" id="qv">92</span>
-                    </div>
-                    <button id="downloadBtn" class="btn btn-primary" disabled>İndir</button>
-                </div>
-
-                <div class="ed-card">
-                    <label class="ed-label">Metin</label>
+                    <label class="ed-label">5) Metin</label>
                     <div class="ed-row">
                         <button id="toolMove" class="btn btn-pill" disabled>🖐 Taşı</button>
                         <button id="toolText" class="btn btn-pill" disabled>✎ Metin</button>
@@ -153,6 +132,21 @@
                         <input id="txtColor" type="color" value="#ffffff" disabled>
                     </div>
                 </div>
+
+                <!-- Dışa aktarım -->
+                <div class="ed-card">
+                    <label class="ed-label">6) Dışa Aktar</label>
+                    <div class="ed-row">
+                        <select id="fmt" disabled>
+                            <option value="image/png">PNG</option>
+                            <option value="image/jpeg">JPEG</option>
+                        </select>
+                        <input id="quality" type="range" min="50" max="100" value="92" disabled>
+                        <span class="val" id="qv">92</span>
+                    </div>
+                    <button id="downloadBtn" class="btn btn-primary" disabled>İndir</button>
+                </div>
+
             </aside>
 
             <!-- SAĞ ÇALIŞMA ALANI -->
@@ -160,12 +154,17 @@
                 <div class="ed-stage">
                     <div class="checkboard"></div>
                     <canvas id="preview" aria-label="Önizleme"></canvas>
-                    <div id="hint" class="ed-hint">Bir görsel bırak ya da “Görsel Yükle”yi kullan.</div>
+                    <div id="hint" class="ed-hint">
+                        Bir görsel bırak ya da “Görsel Yükle”yi kullan.
+                    </div>
+
                     <div class="ed-toolbar">
                         <button id="gridToggle" class="btn btn-pill" disabled>Izgara</button>
                         <span class="zoom-readout" id="zoomReadout">100%</span>
                         <button id="fitBtn" class="btn btn-pill" disabled>Sığdır</button>
                         <button id="oneBtn" class="btn btn-pill" disabled>%100</button>
+                        <button id="undoBtn" class="btn btn-pill" disabled>Geri Al ⌘Z</button>
+                        <button id="redoBtn" class="btn btn-pill" disabled>İleri Al ⌘⇧Z</button>
                     </div>
                 </div>
             </div>
@@ -175,9 +174,7 @@
 
 {% block scripts %}
     <script>
-        // Auth bilgisini JS'e geçir ve header yüksekliğini sticky için ayarla
-        window.BMB_AUTH = {{ request.user.is_authenticated|yesno:"true,false" }};
-
+        // nav yüksekliği sticky için
         function __setNavH() {
             const h = document.querySelector('.site-header');
             if (h) document.documentElement.style.setProperty('--nav-h', (h.offsetHeight || 88) + 'px');

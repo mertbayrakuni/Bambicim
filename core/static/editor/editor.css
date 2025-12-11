@@ -1,22 +1,21 @@
 /* ===== Editor: layout & cards ===== */
 .ed-header {
-    margin-bottom: 1rem
+    margin-bottom: 1rem;
 }
 
 .ed-layout {
     display: grid;
-    grid-template-columns:340px 1fr;
+    grid-template-columns: 340px 1fr;
     gap: 24px;
-    align-items: stretch; /* sağ kolon tam yükseklik */
-    overflow: visible; /* sticky için kritik: üstte overflow yaratma */
+    align-items: stretch;
+    overflow: visible; /* sticky için önemli */
 }
 
 .ed-panel {
     position: sticky;
-    /* Navbar yüksekliğini değişkenden al; base.html'de .site-header boyutu JS ile yazılıyor */
     top: calc(var(--nav-h, 88px) + 12px);
     align-self: start;
-    height: fit-content; /* grid+sticky kombinasyonunda güvenli */
+    height: fit-content;
 }
 
 /* kartlar */
@@ -31,7 +30,7 @@
 .ed-label {
     font-weight: 700;
     display: block;
-    margin-bottom: .35rem
+    margin-bottom: .35rem;
 }
 
 .ed-row {
@@ -39,15 +38,21 @@
     gap: .5rem;
     flex-wrap: wrap;
     align-items: center;
-    margin-top: .35rem
+    margin-top: .35rem;
 }
 
 .ed-slider {
     display: grid;
-    grid-template-columns:120px 1fr 48px;
+    grid-template-columns: 120px 1fr 48px;
     gap: .5rem;
     align-items: center;
     margin: .4rem 0;
+}
+
+.ed-help {
+    font-size: .8rem;
+    opacity: .7;
+    margin-top: .4rem;
 }
 
 /* ===== Buttons ===== */
@@ -56,28 +61,30 @@
     background: rgba(255, 255, 255, .06);
     color: #fff;
     border-radius: .8rem;
-    padding: .5rem .8rem
+    padding: .5rem .8rem;
+    cursor: pointer;
 }
 
 .btn:disabled {
-    opacity: .5
+    opacity: .5;
+    cursor: default;
 }
 
 .btn-primary {
     background: #ff5fb8;
     border-color: transparent;
-    color: #140713
+    color: #140713;
 }
 
 .btn-pill {
-    border-radius: 999px
+    border-radius: 999px;
 }
 
 /* ===== Work area (right column) ===== */
 .ed-work {
     position: relative;
-    height: calc(100vh - 220px); /* canvas görünür kalsın */
-    overflow: auto; /* sahne içeride scroll */
+    height: calc(100vh - 220px);
+    overflow: auto;
     padding-bottom: 56px;
 }
 
@@ -100,7 +107,7 @@
     width: 100%;
     height: 100%;
     max-width: 100%;
-    max-height: 100%
+    max-height: 100%;
 }
 
 /* Hint */
@@ -111,7 +118,8 @@
     transform: translate(-50%, -50%);
     color: #aaa;
     font-style: italic;
-    pointer-events: none
+    pointer-events: none;
+    text-align: center;
 }
 
 /* Checkerboard */
@@ -123,7 +131,7 @@
     conic-gradient(#0000 90deg, #ffffff12 0) 8px 8px/16px 16px;
 }
 
-/* Grid overlay */
+/* Grid overlay (sticky over the canvas area) */
 .grid-overlay {
     position: absolute;
     inset: 0;
@@ -131,7 +139,7 @@
     background-image: linear-gradient(to right, rgba(255, 255, 255, .06) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, .06) 1px, transparent 1px);
     background-size: 24px 24px;
-    opacity: .25
+    opacity: .25;
 }
 
 /* Toolbar */
@@ -142,21 +150,61 @@
     display: flex;
     gap: 8px;
     padding: .5rem .5rem .25rem;
-    backdrop-filter: blur(6px)
+    backdrop-filter: blur(6px);
 }
 
 .zoom-readout {
     opacity: .9;
-    align-self: center
+    align-self: center;
+}
+
+/* ===== Layers panel ===== */
+.ed-layers {
+    list-style: none;
+    margin: .35rem 0 0;
+    padding: 0;
+    max-height: 160px;
+    overflow: auto;
+    border-radius: .6rem;
+    background: rgba(0, 0, 0, .2);
+}
+
+.layer-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .4rem;
+    padding: .25rem .45rem;
+    font-size: .9rem;
+    cursor: pointer;
+}
+
+.layer-item span {
+    flex: 1;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.layer-item.is-active {
+    background: rgba(255, 255, 255, .08);
+}
+
+.layer-eye {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0 .1rem;
 }
 
 /* Responsive */
 @media (max-width: 980px) {
     .ed-layout {
-        grid-template-columns:1fr
+        grid-template-columns: 1fr;
     }
 
     .ed-work {
-        height: calc(100vh - 300px)
+        height: calc(100vh - 300px);
     }
 }
